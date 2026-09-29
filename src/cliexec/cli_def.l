@@ -98,15 +98,21 @@ static void
 append_str(char *text)
 {
   int tlen = strlen(text);
-  if (((str_ptr + tlen) - str_buf) >= str_buflen) {
-    char *new_str_buf = realloc(str_buf, str_buflen + BUF_INCREMENT);
+  size_t used = str_ptr - str_buf;
+
+  if (used + tlen >= (size_t)str_buflen) {
+    /* As in append_action: grow until it fits; rebase via the offset. */
+    size_t newlen = str_buflen;
+    while (used + tlen >= newlen)
+      newlen += BUF_INCREMENT;
+    char *new_str_buf = realloc(str_buf, newlen);
     if (!new_str_buf) {
       printf("Failed to allocate memory\n");
       exit(-1);
     }
-    str_buflen += BUF_INCREMENT;
-    str_ptr += new_str_buf - str_buf;
     str_buf = new_str_buf;
+    str_buflen = newlen;
+    str_ptr = str_buf + used;
   }
   strcpy(str_ptr, text);
   str_ptr += tlen;
