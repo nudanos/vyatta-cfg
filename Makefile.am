@@ -224,8 +224,15 @@ man_MANS += man/man3/transaction.h.3 man/man3/error.h.3 man/man3/mgmt.h.3 man/ma
 cpiop = find  . ! -regex '\(.*~\|.*\.bak\|.*\.swp\|.*\#.*\#\)' -print0 | \
 	cpio -0pd
 
-$(man_MANS):
+# One doxygen run produces every man page; a stamp keeps parallel make from
+# running it once per page (concurrent runs raced creating html/ and man/).
+doxygen.stamp: Doxyfile
 	doxygen Doxyfile
+	touch $@
+
+$(man_MANS): doxygen.stamp
+
+CLEANFILES += doxygen.stamp
 
 all-local: $(man_MANS)
 
