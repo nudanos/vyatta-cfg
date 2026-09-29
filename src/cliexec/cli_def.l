@@ -73,15 +73,22 @@ append_action(char *text)
 {
   int tlen = strlen(text);
 
-  if (((action_ptr + tlen) - action_buf) >= action_buflen) {
-    char *new_action_buf = realloc(action_buf, action_buflen + BUF_INCREMENT);
+  size_t used = action_ptr - action_buf;
+
+  if (used + tlen >= (size_t)action_buflen) {
+    /* Grow until the text (plus NUL) fits, and rebase action_ptr on the
+     * new buffer via its offset: the old pointer is invalid after realloc. */
+    size_t newlen = action_buflen;
+    while (used + tlen >= newlen)
+      newlen += BUF_INCREMENT;
+    char *new_action_buf = realloc(action_buf, newlen);
     if (!new_action_buf) {
       printf("Failed to allocate memory\n");
       exit(-1);
     }
-    action_buflen += BUF_INCREMENT;
-    action_ptr += new_action_buf - action_buf;
     action_buf = new_action_buf;
+    action_buflen = newlen;
+    action_ptr = action_buf + used;
   }
   strcpy(action_ptr, text);
   action_ptr += tlen;
