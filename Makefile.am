@@ -80,15 +80,13 @@ src_libvyatta_config_la_CXXFLAGS = -std=c++0x -g -Wall -Werror -Wno-deprecated
 
 lib_LTLIBRARIES += src/libvyatta-cstore-compat.la
 src_libvyatta_cstore_compat_la_LDFLAGS	= -version-info 1:0:0
-src_libvyatta_cstore_compat_la_LDFLAGS	+= -Lsrc/.libs
 src_libvyatta_cstore_compat_la_LIBADD = -lvyatta-util
-src_libvyatta_cstore_compat_la_LIBADD += -lvyatta-config
+src_libvyatta_cstore_compat_la_LIBADD += src/libvyatta-config.la
 src_libvyatta_cstore_compat_la_LIBADD += -lperl
 src_libvyatta_cstore_compat_la_LIBADD += -luriparser
 src_libvyatta_cstore_compat_la_SOURCES = src/compat/cstore-compat.cpp
 src_libvyatta_cstore_compat_la_CXXFLAGS = $(AM_CXXFLAGS)
 src_libvyatta_cstore_compat_la_CXXFLAGS += -Isrc/client
-src_libvyatta_cstore_compat_la_CXXFLAGS += -Lsrc/.libs
 
 vclincdir = $(vincludedir)/client
 vclinc_HEADERS = src/client/connect.h
