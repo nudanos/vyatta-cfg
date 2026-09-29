@@ -1,1 +1,1 @@
-opt/vyatta/bin/vcli bin/vcli
+opt/vyatta/bin/vcli usr/bin/vcli

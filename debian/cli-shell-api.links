@@ -1,1 +1,1 @@
-opt/vyatta/sbin/my_cli_shell_api bin/cli-shell-api
+opt/vyatta/sbin/my_cli_shell_api usr/bin/cli-shell-api
