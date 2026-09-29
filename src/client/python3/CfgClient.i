@@ -57,7 +57,7 @@
 }
 
 %typemap(out) std::vector<std::string> {
-	std::vector<std::string> &vec = $1;
+	const std::vector<std::string> &vec = $1;
 	PyObject *out = PyList_New(vec.size());
 	for (unsigned int i = 0; i < vec.size(); i++) {
 		PyList_SetItem(out, i, PyUnicode_FromString(vec[i].c_str()));
@@ -66,9 +66,9 @@
 }
 
 %typemap(out) std::map<std::string, std::string> {
-	std::map<std::string, std::string> &m = $1;
+	const std::map<std::string, std::string> &m = $1;
 	PyObject *out = PyDict_New();
-	std::map<std::string, std::string>::iterator it = m.begin();
+	std::map<std::string, std::string>::const_iterator it = m.begin();
 	for (; it != m.end(); ++it) {
 		PyObject *key = PyUnicode_FromString((*it).first.c_str());
 		PyObject *val = PyUnicode_FromString((*it).second.c_str());
@@ -78,12 +78,12 @@
 }
 
 %typemap(out) std::map<std::string, std::vector<std::string> > {
-	std::map<std::string, std::vector<std::string> > &m = $1;
+	const std::map<std::string, std::vector<std::string> > &m = $1;
 	PyObject *out = PyDict_New();
-	std::map<std::string, std::vector<std::string> >::iterator it = m.begin();
+	std::map<std::string, std::vector<std::string> >::const_iterator it = m.begin();
 	for (; it != m.end(); ++it) {
 		PyObject *key = PyUnicode_FromString((*it).first.c_str());
-		std::vector<std::string> &vec = (*it).second;
+		const std::vector<std::string> &vec = (*it).second;
 		PyObject *val = PyList_New(vec.size());
 		for (unsigned int i = 0; i < vec.size(); i++) {
 			PyList_SetItem(val, i, PyUnicode_FromString(vec[i].c_str()));

@@ -41,9 +41,9 @@
 
 //Map returned std::map<std::string, std::string> to perl hashes
 %typemap(out) std::map<std::string, std::string> {
-	std::map<std::string, std::string> &m = $1;
+	const std::map<std::string, std::string> &m = $1;
 	HV *href = newHV();
-	std::map<std::string, std::string>::iterator it = m.begin();
+	std::map<std::string, std::string>::const_iterator it = m.begin();
 	for (; it != m.end(); ++it) {
 		const char *key = (*it).first.c_str();
 		const char *val = (*it).second.c_str();
@@ -55,12 +55,12 @@
 
 //Map returned std::map<std::string, std::vector<std::string>> to perl hashes
 %typemap(out) std::map<std::string, std::vector<std::string> > {
-	std::map<std::string, std::vector<std::string> > &m = $1;
+	const std::map<std::string, std::vector<std::string> > &m = $1;
 	HV *href = newHV();
-	std::map<std::string, std::vector<std::string> >::iterator it = m.begin();
+	std::map<std::string, std::vector<std::string> >::const_iterator it = m.begin();
 	for (; it != m.end(); ++it) {
 		const char *key = (*it).first.c_str();
-		std::vector<std::string> &vec = (*it).second;
+		const std::vector<std::string> &vec = (*it).second;
 		AV *val = newAV();
 		for (unsigned int i = 0; i < vec.size(); i++) {
 			av_push(val, newSVpv(vec[i].c_str(), 0));
@@ -100,7 +100,7 @@
 	//return perl ARRAYS using stack returns
 	//this avoids needing an additional layer to dereference
 	//and return.
-	std::vector<std::string> &vec = $1;
+	const std::vector<std::string> &vec = $1;
 	I32 gimme = GIMME_V;
 	switch (gimme) {
 	case G_VOID:
