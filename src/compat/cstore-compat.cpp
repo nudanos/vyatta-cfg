@@ -31,8 +31,11 @@ __attribute__((noreturn))
 __attribute__((format(__printf__,1,2)))
 __attribute__((nonnull(1)));
 
-extern "C" void* Perl_get_context(void)
-__attribute__((warn_unused_result));
+/* Perl >= 5.38 keeps the interpreter context in this thread-local and no
+ * longer exports Perl_get_context(); perl's thread.h defines PERL_GET_CONTEXT
+ * as PL_current_context. Declared C-style (__thread) to match libperl's TLS
+ * symbol without C++ thread_local wrapper calls. */
+extern "C" __thread void *PL_current_context;
 
 /* 
  *  URI_MULT is defined by the uriparser documenation to need to be 6 when expanding breaks
@@ -554,7 +557,7 @@ void Cstore::exit_err(const char *fmt, ...) {
 void Cstore::vexit_err(const char *fmt, va_list alist) {
 	char buf[256];
 	vsnprintf(buf, 256, fmt, alist);
-	if (Perl_get_context()) {
+	if (PL_current_context) {
 		Perl_croak_nocontext("%s", buf);
 	} else {
 		fprintf(stderr, "%s\n", buf);
