@@ -12,3 +12,6 @@ GENERATE_MAN           = YES
 GENERATE_HTML          = YES
 SORT_MEMBER_DOCS       = NO
 REPEAT_BRIEF           = YES
+
+# Debian 13 doxygen defaults to graphviz diagrams; keep the plain docs DANOS shipped.
+HAVE_DOT = NO
