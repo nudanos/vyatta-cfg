@@ -5,6 +5,11 @@ sysconfdir=@sysconfdir@
 sbindir=@sbindir@
 datadir=@datadir@
 
+# configuration is group-owned by vyattacfg; nothing else may have created it
+if ! getent group vyattacfg >/dev/null; then
+  addgroup --system vyattacfg >/dev/null
+fi
+
 for dir in $sysconfdir/config $prefix/config; do
   if [ -d "$dir" ]; then
     # already exists
