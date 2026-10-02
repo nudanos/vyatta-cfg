@@ -23,7 +23,6 @@ debian/tmp
 debian/tmpsrc
 debian/vyatta-cfg
 debian/vyatta-cfg.postinst
-debian/vyatta-cfg.postrm
 debian/libvyatta-cfg-dev
 debian/libvyatta-cfg-dbg
 debian/libvyatta-cfg1

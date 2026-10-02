@@ -1,3 +1,10 @@
+vyatta-cfg (1.31) trixie; urgency=medium
+
+  * postrm: remove the post-commit hook link and the configd_end.d directory
+    postinst creates.
+
+ -- NuDanOS Maintainers <jon@fernandez.tech>  Fri, 02 Oct 2026 13:11:53 -0700
+
 vyatta-cfg (1.30) trixie; urgency=medium
 
   * Port to Debian 13 (trixie): debhelper-compat 13, Standards-Version 4.7.2, Rules-Requires-Root, NuDanOS Vcs.

@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+case "$1" in
+    remove|purge)
+        # created by postinst, not owned by dpkg
+        rm -f /etc/commit/post-hooks.d/10vyatta-log-commit.pl
+        for d in /opt/vyatta/share/tmplscripts/interfaces/configd_end.d \
+                 /opt/vyatta/share/tmplscripts/interfaces \
+                 /opt/vyatta/share/tmplscripts /opt/vyatta/share; do
+            rmdir "$d" 2>/dev/null || true
+        done
+        ;;
+esac
+#DEBHELPER#
+exit 0
