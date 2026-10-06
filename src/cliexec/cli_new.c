@@ -1584,8 +1584,9 @@ system_out(char *cmd, const char *prepend_msg, boolean eloc)
 			exit(1);
 		}
 		close(pfd[1]);
-		char *eargs[] = { "sh", "-c", cmd, NULL };
-		execv("/bin/sh", eargs);
+		/* bash, as DANOS's /bin/sh was (Debian 13's is dash) */
+		char *eargs[] = { "bash", "-c", cmd, NULL };
+		execv("/bin/bash", eargs);
 		return -1; /* should not get here */
 	}
 }

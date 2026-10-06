@@ -212,12 +212,14 @@ static void process_string(const std::string &str, const std::string &cpath)
 	}
 	estr = get_exe_string();
 	free(at_string);
+	/* Templates are written for bash, which DANOS's /bin/sh was; on
+	 * Debian 13 /bin/sh is dash. */
 	if (no_shell) {
 		std::string cmd("exec ");
 		cmd += estr;
-		execl("/bin/sh", "sh", "-c", cmd.c_str(), NULL);
+		execl("/bin/bash", "bash", "-c", cmd.c_str(), NULL);
 	} else {
-		execl("/bin/sh", "sh", "-c", estr, NULL);
+		execl("/bin/bash", "bash", "-c", estr, NULL);
 	}
 	perror("execl");
 	exit(EXIT_FAILURE);

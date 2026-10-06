@@ -1,3 +1,10 @@
+vyatta-cfg (1.32) trixie; urgency=medium
+
+  * cliexec runs expanded templates with bash, which DANOS's /bin/sh was;
+    Debian 13's /bin/sh is dash and 'service snmp' failed ('[[: not found')
+
+ -- NuDanOS Maintainers <jon@fernandez.tech>  Tue, 06 Oct 2026 07:27:31 -0700
+
 vyatta-cfg (1.31) trixie; urgency=medium
 
   * postrm: remove the post-commit hook link and the configd_end.d directory
