@@ -9,7 +9,11 @@
 BOOT_FILE=$1
 shift
 
-CAPI=/bin/cli-shell-api
+CAPI=${BOOT_CONFIG_CAPI:-/bin/cli-shell-api}
+# Executables run before the boot configuration is loaded, as
+# "<hook> <boot file>" (e.g. to set aside configuration a release cannot
+# load). A failing hook is logged and does not stop the boot.
+HOOK_DIR=${BOOT_CONFIG_HOOK_DIR:-/opt/vyatta/etc/boot-config.d}
 
 do_commit () {
   cfgcli commit "$@"
@@ -26,6 +30,21 @@ umask 0002
   if ! $CAPI setupSession; then
     echo 'Cannot set up configuration session.' 1>&2
     exit 1
+  fi
+
+  # boot-config hooks
+  if [ -d "$HOOK_DIR" ]; then
+    for hook in $(LC_ALL=C ls "$HOOK_DIR"); do
+      path=$HOOK_DIR/$hook
+      [ -f "$path" ] && [ -x "$path" ] || continue
+      "$path" "$BOOT_FILE"
+      status=$?
+      if [ $status -eq 0 ]; then
+        echo "boot-config hook $hook: ok"
+      else
+        echo "boot-config hook $hook: failed ($status)" 1>&2
+      fi
+    done
   fi
 
   # do load
