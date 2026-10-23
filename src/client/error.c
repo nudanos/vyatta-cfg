@@ -282,13 +282,15 @@ void configd_error_format_for_commit_or_val(
 
 	struct configd_mgmt_error **me_list = configd_error_mgmt_error_list(ce);
 	if (me_list == NULL) {
+		free(cur_output);
 		return;
 	}
 	int num_errors = configd_error_num_mgmt_errors(ce);
 
 	for (i = 0; i < num_errors; i ++) {
 		err_str = configd_mgmt_error_format_for_commit_or_val(me_list[i]);
-		int new_len = strlen(cur_output) + strlen(err_str) + 1;
+		/* NULL for a NULL entry: strlen(err_str) crashed */
+		int new_len = strlen(cur_output) + (err_str ? strlen(err_str) : 0) + 1;
 		new_output = malloc(new_len);
 		if (new_output == NULL) {
 			if (err_str != NULL) {
@@ -459,7 +461,8 @@ char *local_strdup(const char *s)
 	if (retstr == NULL) {
 		return NULL;
 	}
-	return strcpy(retstr, s);
+	strcpy(retstr, s);
+	return retstr;
 }
 
 int local_vasprintf (char **dest, const char *fmt_str, va_list args)

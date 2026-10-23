@@ -206,6 +206,25 @@ TEST(Format, cfgd_error_format_not_mgmt_error)
 	STRCMP_EQUAL(TEST_MESSAGE_WITH_NL, test_err.text);
 }
 
+// A NULL entry in the management error list formats as no text: it used
+// to reach strlen(NULL) before the NULL check below it.
+TEST(Format, cfgd_error_format_null_mgmt_error_entry)
+{
+	populate_single_test_error(
+		PATH_FIELD, TEST_PATH, MESSAGE_FIELD, TEST_MESSAGE);
+	POINTERS_EQUAL(NULL, configd_validate(&test_conn, &test_err));
+
+	struct configd_mgmt_error *saved = test_err.mgmt_errs.me_list[0];
+	test_err.mgmt_errs.me_list[0] = NULL;
+	configd_error_format_for_commit_or_val(&test_err, TEST_OP);
+	test_err.mgmt_errs.me_list[0] = saved;
+
+	char *exp_output;
+	CHECK_FALSE(asprintf(&exp_output, "\n%s failed!\n", TEST_OP) == -1);
+	STRCMP_EQUAL(exp_output, test_err.text);
+	free(exp_output);
+}
+
 TEST(Format, cfgd_error_format_single_error)
 {
 	test_single_error_format(
