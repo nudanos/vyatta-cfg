@@ -27,7 +27,7 @@ public:
 	Cpath(const Cpath& p) : _data() {
 		operator=(p);
 	};
-	Cpath(const std::string &comps) : _data() {
+	explicit Cpath(const std::string &comps) : _data() {
 		size_t pos = 0;
 		std::string token;
 		std::string s = comps;
@@ -137,13 +137,13 @@ private:
 
 	std::vector<std::string> _data;
 	std::string url_escape(const char* s) const {
-		char *out = (char *)malloc(strlen(s) * URI_MULT);
+		char *out = static_cast<char *>(malloc(strlen(s) * URI_MULT));
 		uriEscapeA(s, out, URI_FALSE, URI_TRUE);
 		std::string outs = std::string(out);
 		free(out);
 		return outs;
 	}
-	std::string url_unescape(std::string s) const {
+	std::string url_unescape(const std::string &s) const {
 		char *out = strdup(s.c_str());
 		uriUnescapeInPlaceA(out);
 		std::string outs = std::string(out);

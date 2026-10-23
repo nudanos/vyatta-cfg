@@ -30,8 +30,7 @@ void string2vec(std::string s, std::vector<std::string> &out);
 class CfgClientFatalException
 {
 public:
-	CfgClientFatalException (const std::string &msg) {
-		_msg = msg;
+	explicit CfgClientFatalException (const std::string &msg) : _msg(msg) {
 	};
 	~CfgClientFatalException() {};
 	const std::string &what() const {
@@ -45,8 +44,7 @@ private:
 class CfgClientException
 {
 public:
-	CfgClientException (const std::string &msg) {
-		_msg = msg;
+	explicit CfgClientException (const std::string &msg) : _msg(msg) {
 	};
 	~CfgClientException() {};
 	const std::string &what() const {
@@ -60,6 +58,10 @@ private:
 class CfgClient
 {
 public:
+	/* owns its configd connection: not copied */
+	CfgClient(const CfgClient &) = delete;
+	CfgClient &operator=(const CfgClient &) = delete;
+
 	/**
 	 * CfgClient() creates a new connection to configd.
 	 * This will create a connection to configd and will inherit
@@ -201,7 +203,7 @@ public:
 	 * Validate() checks that the candidate configuration meets all the
 	 * constraints modeled in the schema.
 	 */
-	std::string ValidateConfig(const std::string encoding, const std::string config) throw(CfgClientException);
+	std::string ValidateConfig(const std::string &encoding, const std::string &config) throw(CfgClientException);
 	/**
 	 * Save() Saves the current running configuration to the 'saved'
 	 * configuration.
@@ -510,7 +512,7 @@ public:
 	 * @param input The input definition of the schema defined in JSON_ENCODING.
 	 * @return The output schema defined in the RPC in JSON_ENCODING.
 	 */
-	std::string CallRPC(const std::string ns, const std::string name, const std::string input) throw(CfgClientException);
+	std::string CallRPC(const std::string &ns, const std::string &name, const std::string &input) throw(CfgClientException);
 	/**
 	 * CallRPCXML() Will call RPCs defined in yang data-models.
 	 * @param ns The XML namespace for the model in which the RPC is defined.
@@ -518,7 +520,7 @@ public:
 	 * @param input The input definition of the schema defined in XML_ENCODING.
 	 * @return The output schema defined in the RPC in XML_ENCODING.
 	 */
-	std::string CallRPCXML(const std::string ns, const std::string name, const std::string input) throw(CfgClientException);
+	std::string CallRPCXML(const std::string &ns, const std::string &name, const std::string &input) throw(CfgClientException);
 	/**
 	 * EditConfigXML will perform a  RFC-6241 edit-config operation, see RFC-6241 for more information.
 	 * @param target The target datastore, can be "candidate", "running".
@@ -527,7 +529,7 @@ public:
 	 * @param error_option The operation to perform when an error is encountered, may be "stop-on-error", "continue-on-error", or "rollback-on-error".
 	 * @param config The XML data for an edit-config operation rooted at "<config>".
 	 */
-	std::string EditConfigXML(const std::string target, const std::string default_operation, const std::string test_option, const std::string error_option, const std::string config) throw(CfgClientException);
+	std::string EditConfigXML(const std::string &target, const std::string &default_operation, const std::string &test_option, const std::string &error_option, const std::string &config) throw(CfgClientException);
 	/**
 	 * CopyConfig will perform a RFC-6241 copy-config operation, see RFC-6241
 	 * for more information.
@@ -540,12 +542,12 @@ public:
 	 * @param target_url Alternative target destination (not currently supported).
 	 */
 	std::string CopyConfig(
-		const std::string source_datastore,
-		const std::string source_encoding,
-		const std::string source_config,
-		const std::string source_url,
-		const std::string target_datastore,
-		const std::string target_url) throw(CfgClientException);
+		const std::string &source_datastore,
+		const std::string &source_encoding,
+		const std::string &source_config,
+		const std::string &source_url,
+		const std::string &target_datastore,
+		const std::string &target_url) throw(CfgClientException);
 
 private:
 	std::string _sessionid;

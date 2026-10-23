@@ -286,7 +286,6 @@ int char2val_text(const vtw_def *def, char *value, valstruct **valp);
 int char2val(const vtw_def *def, char *value, valstruct *valp)
 {
 	int my_type = def->def_type;
-	int my_type2 = def->def_type2;
 
 	memset(valp, 0, sizeof (*valp));
 
@@ -309,7 +308,7 @@ int char2val(const vtw_def *def, char *value, valstruct *valp)
 
 		/* currently fails to handle mixed text + non-text case... */
 		char buf1[2048];
-		if (char2val_notext(def,my_type,my_type2,value,&valp,buf1) != 0) {
+		if (char2val_notext(def,my_type,def->def_type2,value,&valp,buf1) != 0) {
 			OUTPUT_USER("%s", buf1);
 			return -1; /* only single definition */
 		}
@@ -325,7 +324,6 @@ int char2val_notext(const vtw_def *def, int my_type, int my_type2,
                     char *value, valstruct **valpp, char *err_buf)
 {
 	valstruct *valp = *valpp;
-	int token;
 	boolean first = TRUE;
 
 	yy_cli_val_restart(NULL);
@@ -340,7 +338,7 @@ int char2val_notext(const vtw_def *def, int my_type, int my_type2,
 	}
 
 	while(1) {
-		token = yy_cli_val_lex();
+		int token = yy_cli_val_lex();
 
 		if (token != VALUE) {
 			if (first || token) {
@@ -353,7 +351,7 @@ int char2val_notext(const vtw_def *def, int my_type, int my_type2,
 					printf("Wrong type of value in %s, need %s\n",
 					       m_path.path_buf + m_path.print_offset, type_buf);
 
-					token = yy_cli_val_lex();
+					(void)yy_cli_val_lex();    /* consume it */
 
 					sprintf(err_buf, "\"%s\" is not a valid value of type \"%s\"\n",
 					        value, type_buf);
@@ -363,8 +361,8 @@ int char2val_notext(const vtw_def *def, int my_type, int my_type2,
 			}
 			return 0;
 		}
-		if (my_type != get_cli_value_ptr()->val_type &&
-		    (my_type2 != ERROR_TYPE && my_type2 != get_cli_value_ptr()->val_type)) {
+		if (my_type != (int)get_cli_value_ptr()->val_type &&
+		    (my_type2 != ERROR_TYPE && my_type2 != (int)get_cli_value_ptr()->val_type)) {
 			if (def->def_type_help) {
 				set_at_string(value);
 				(void)expand_string(def->def_type_help);
@@ -373,7 +371,7 @@ int char2val_notext(const vtw_def *def, int my_type, int my_type2,
 				printf("Wrong type of value in %s, need %s\n",
 				       m_path.path_buf + m_path.print_offset, type_buf);
 
-				token = yy_cli_val_lex();
+				(void)yy_cli_val_lex();    /* consume it */
 
 				sprintf(err_buf, "\"%s\" is not a valid value of type \"%s\"\n",
 				        value, type_buf);
@@ -420,7 +418,9 @@ int char2val_text(const vtw_def *def, char *value, valstruct **valpp)
 {
 	valstruct *valp = *valpp;
 	char *endp, *cp;
-	int linecnt, cnt;
+	int linecnt;
+
+	(void)def;    /* same signature as char2val_notext */
 
 	/* PROCESSING IF TYPE IS TEXT TYPE */
 
@@ -448,7 +448,7 @@ int char2val_text(const vtw_def *def, char *value, valstruct **valpp)
 		}
 	} else {
 		valp->cnt = linecnt;
-		cnt = (linecnt + MULTI_ALLOC - 1) / MULTI_ALLOC;
+		int cnt = (linecnt + MULTI_ALLOC - 1) / MULTI_ALLOC;
 		cnt *= MULTI_ALLOC;
 		valp->vals = my_malloc(cnt * sizeof(char *), "char2val_text 2");
 		valp->val_types = my_malloc(cnt * sizeof(vtw_type_e), "char2val_text 3");
@@ -496,7 +496,7 @@ val_cmp(const valstruct *left, const valstruct *right, vtw_cond_e cond)
 	char const *format;
 	char *lval, *rval;
 	int ret=0, step=0, res=0;
-	int rhs_empty=0, lhs_empty=0;
+	int rhs_empty, lhs_empty;
 
 	val_type = left->val_type;
 	if (left->cnt) {
@@ -530,16 +530,16 @@ val_cmp(const valstruct *left, const valstruct *right, vtw_cond_e cond)
 			    && cond != IN_COND
 			    && (right->cnt == 0)
 			    && right->val_type == INT_TYPE) {
-				unsigned int right_part;
-				int res = 0;
+				unsigned int right_part = 0;
+				int cmp = 0;
 				(void) sscanf(rval, "%u", &right_part);
-				if (left->cnt > right_part) {
-					res = 1;
-				} else if (left->cnt < right_part) {
-					res = -1;
+				if ((unsigned int)left->cnt > right_part) {
+					cmp = 1;
+				} else if ((unsigned int)left->cnt < right_part) {
+					cmp = -1;
 				}
-				ret = ((res == cond1[cond]) ||
-				       (res == cond2[cond]));
+				ret = ((cmp == cond1[cond]) ||
+				       (cmp == cond2[cond]));
 				return ret;
 			}
 
@@ -727,6 +727,9 @@ static boolean check_syn_func(vtw_node *cur, const char *prepend_msg,
 	int ret;
 	int ii;
 
+	(void)func;    /* for the caller's debug builds */
+	(void)line;
+
 	switch(cur->vtw_node_oper) {
 	case LIST_OP:
 		ret = TRUE;
@@ -842,13 +845,13 @@ static boolean check_syn_func(vtw_node *cur, const char *prepend_msg,
 	case PATTERN_OP: { /* left to var, right to pattern */
 		valstruct left;
 		regex_t myreg;
-		boolean ret;
-		int ii;
+		boolean matched;
+		int vi;
 
-		ret = TRUE;
+		matched = TRUE;
 		status = eval_va(&left, cur->vtw_node_left);
 		if (status) {
-			ret = FALSE;
+			matched = FALSE;
 			goto free_and_return;
 		}
 		status = regcomp(&myreg, cur->vtw_node_right->vtw_node_string,
@@ -857,12 +860,12 @@ static boolean check_syn_func(vtw_node *cur, const char *prepend_msg,
 			bye("Can not compile regex |%s|, result %d\n",
 			    cur->vtw_node_right->vtw_node_string, status);
 		/* for every value */
-		for(ii = 0; ii < left.cnt || ii == 0; ++ii) {
+		for(vi = 0; vi < left.cnt || vi == 0; ++vi) {
 			status = regexec(&myreg, left.cnt?
-			                 left.vals[ii]:left.val,
+			                 left.vals[vi]:left.val,
 			                 0, 0, 0);
 			if(status) {
-				ret = FALSE;
+				matched = FALSE;
 				break;
 			}
 		}
@@ -871,7 +874,7 @@ free_and_return:
 		if (left.free_me) {
 			free_val(&left);
 		}
-		return ret;
+		return matched;
 	}
 
 	case OR_OP:
@@ -967,7 +970,7 @@ static int eval_va(valstruct *res, vtw_node *node)
 				   It would be better if cstore did this*/
 				status = 0;
 				if(vptr) {
-					char * pch;
+					const char * pch;
 					valstruct vs;
 					res->ismulti = ismulti;
 					res->val_type = vtype;
@@ -1009,7 +1012,7 @@ static int eval_va(valstruct *res, vtw_node *node)
 		return 0;
 	case B_QUOTE_OP: {
 		FILE *f;
-		int a_len, len, rd;
+		int a_len, len;
 
 		status = expand_string(node->vtw_node_string);
 		if (status != VTWERR_OK) {
@@ -1030,7 +1033,7 @@ static int eval_va(valstruct *res, vtw_node *node)
 
 		a_len = LEN;
 		for(;;) {
-			rd = fread(cp + len, 1, a_len - len , f);
+			int rd = fread(cp + len, 1, a_len - len , f);
 			len += rd;
 			if (len < a_len) {
 				break;
@@ -1250,18 +1253,18 @@ static void scan_ipv6(char *val, unsigned int *parts)
 	int num_cnt = 0;
 	int dot_dot_pos = -1;
 	int dot_cnt = 0;
-	char c;
 	char *p;
 	int base = 16;
 	int total = 8;
-	int gap;
 
 	p = val;
 	if (strncmp(p, ".wh.", 4) == 0) {
 		p = p + 4;
 	}
 	for ( ; TRUE; ++p) {
-		switch ((c = *p)) {
+		char c = *p;
+
+		switch (c) {
 		case '.':
 			if (dot_cnt == 0) {
 				/* turn out it was decimal, convert our wrong
@@ -1315,7 +1318,7 @@ static void scan_ipv6(char *val, unsigned int *parts)
 	/* replace '::' with 0s */
 	if (dot_dot_pos != -1 && total != num_cnt) {
 		int i;
-		gap = total - num_cnt;
+		int gap = total - num_cnt;
 		if (dot_dot_pos != num_cnt)
 			memmove(parts+dot_dot_pos+gap, parts+dot_dot_pos,
 			        (num_cnt-dot_dot_pos)*sizeof(int));
@@ -1377,10 +1380,9 @@ static int
 system_out(char *cmd, const char *prepend_msg, boolean eloc)
 {
 	int pfd[2];
-	int ret;
 	pid_t cpid;
 
-	if (!cmd || (ret = pipe(pfd)) != 0) {
+	if (!cmd || pipe(pfd) != 0) {
 		return -1;
 	}
 
@@ -1579,8 +1581,8 @@ system_out(char *cmd, const char *prepend_msg, boolean eloc)
 	} else {
 		/* child process */
 		close(pfd[0]);
-		if ((ret = dup2(pfd[1], STDOUT_FILENO) < 0)
-		    || (ret = dup2(pfd[1], STDERR_FILENO)) < 0) {
+		if (dup2(pfd[1], STDOUT_FILENO) < 0
+		    || dup2(pfd[1], STDERR_FILENO) < 0) {
 			exit(1);
 		}
 		close(pfd[1]);

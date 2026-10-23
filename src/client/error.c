@@ -144,7 +144,7 @@ int configd_mgmt_error_set_from_maps(
 // Return space-separated version of path, or NULL if no path set.
 // Ignore any leading '/'.
 static char *configd_mgmt_error_path_space_separated(
-	struct configd_mgmt_error *me)
+	const struct configd_mgmt_error *me)
 {
 	if (me == NULL) {
 		return NULL;
@@ -267,7 +267,7 @@ void configd_error_format_for_commit_or_val(
 		return;
 	}
 
-	char *cur_output = NULL, *new_output, *err_str;
+	char *cur_output = NULL, *new_output;
 	const char *fmt_str = "\n%s failed!\n";
 	operation = operation ? operation : "Operation";
 	int len = strlen(fmt_str) + strlen(operation) + 1;
@@ -288,7 +288,7 @@ void configd_error_format_for_commit_or_val(
 	int num_errors = configd_error_num_mgmt_errors(ce);
 
 	for (i = 0; i < num_errors; i ++) {
-		err_str = configd_mgmt_error_format_for_commit_or_val(me_list[i]);
+		char *err_str = configd_mgmt_error_format_for_commit_or_val(me_list[i]);
 		/* NULL for a NULL entry: strlen(err_str) crashed */
 		int new_len = strlen(cur_output) + (err_str ? strlen(err_str) : 0) + 1;
 		new_output = malloc(new_len);
@@ -331,7 +331,7 @@ void configd_error_free(struct configd_error *error)
 	}
 }
 
-int configd_error_is_mgmt_error(struct configd_error *error) {
+int configd_error_is_mgmt_error(const struct configd_error *error) {
 	return error->is_mgmt_error;
 }
 
@@ -380,7 +380,7 @@ void mgmt_err_list_free(struct configd_mgmt_err_list *mel)
 
 // Return malloced string containing the message from each mgmt_error in the
 // list, one per line, with each entry including last terminated with newline.
-static char *merge_messages(struct configd_mgmt_err_list *mgmt_errs)
+static char *merge_messages(const struct configd_mgmt_err_list *mgmt_errs)
 {
 	char *text = NULL;
 	int bytes = 0;
@@ -412,6 +412,7 @@ int error_set_from_mgmt_error_list(
 	struct configd_mgmt_err_list *mgmt_errs,
 	const char *function)
 {
+	(void)function;    /* kept for callers; unused */
 	if (ce == NULL) {
 		return -1;
 	}
@@ -433,7 +434,7 @@ int error_set_from_mgmt_error_list(
 	if (ce->mgmt_errs.num_entries == 0) {
 		return set_value("Unspecified error occurred (no data)\n", &ce->text);
 	} else if (ce->mgmt_errs.num_entries == 1) {
-		struct configd_mgmt_error *me = ce->mgmt_errs.me_list[0];
+		const struct configd_mgmt_error *me = ce->mgmt_errs.me_list[0];
 		if (me == NULL) {
 			return set_value("Unspecified error (no content)\n", &ce->text);
 		}

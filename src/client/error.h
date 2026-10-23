@@ -110,7 +110,7 @@ struct configd_error
  * configd_error_is_mgmt_error returns non-zero value if error is a mgmt_error
  * and 0 if it is a basic (non-mgmt) error.
  */
-int configd_error_is_mgmt_error(struct configd_error *ce);
+int configd_error_is_mgmt_error(const struct configd_error *ce);
 
 /**
  * configd_error_num_mgmt_errors returns the number of mgmt_errors, if any,

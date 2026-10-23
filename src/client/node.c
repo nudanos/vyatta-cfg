@@ -171,6 +171,7 @@ char *configd_tree_get_full_internal(struct configd_conn *conn, int db, const ch
 
 char *configd_node_get_complete_env(struct configd_conn *conn, const char *cpath, struct configd_error *error)
 {
+	(void)error;    /* public API; nothing here reports errors */
 	if (!conn || !cpath)
 		return NULL;
 	// TODO: pass error down

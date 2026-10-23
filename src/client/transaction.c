@@ -30,7 +30,7 @@ static void argz_pop(char **argz, size_t *size)
 // split rename or copy path at "to" and have from and to be full paths
 static int split_path(char **from, size_t *from_len, char **to, size_t *to_len)
 {
-	int i;
+	size_t i;
 	char *new_to = NULL;
 	size_t new_to_len = 0;
 	char *next;

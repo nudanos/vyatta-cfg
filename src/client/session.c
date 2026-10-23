@@ -176,6 +176,7 @@ int configd_sess_mark_unsaved(struct configd_conn *conn, struct configd_error *e
 
 char *configd_sess_get_env(struct configd_conn *conn, struct configd_error *error)
 {
+	(void)error;    /* public API; nothing here reports errors */
 	static const char env_fmt[] = "declare -x " C_ENV_EDIT_LEVEL "=/; "
 		"umask 002; { declare -x -r VYATTA_CONFIG_SID=%s; } >&/dev/null || true";
 	char *env;

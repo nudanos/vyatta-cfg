@@ -83,7 +83,7 @@ int configd_open_connection(struct configd_conn *conn)
 	int local_errno;
 	struct sockaddr_un configd = { .sun_family = AF_UNIX };
 
-	char *sock_addr = getenv("VYATTA_CONFIG_SOCKET");
+	const char *sock_addr = getenv("VYATTA_CONFIG_SOCKET");
 	if (sock_addr == NULL) {
 		sock_addr = DEFAULT_CONFIG_SOCKET;
 	}
@@ -611,7 +611,7 @@ static void handle_rpc_error(struct configd_error *error, struct response *resp)
 	}
 }
 
-int get_int(struct configd_conn *conn, struct request *req, struct configd_error *error)
+int get_int(struct configd_conn *conn, const struct request *req, struct configd_error *error)
 {
 	struct response resp;
 
@@ -652,7 +652,7 @@ error:
 	return -1;
 }
 
-char *get_str(struct configd_conn *conn, struct request *req, struct configd_error *error)
+char *get_str(struct configd_conn *conn, const struct request *req, struct configd_error *error)
 {
 	struct response resp;
 
@@ -693,7 +693,7 @@ error:
 	return NULL;
 }
 
-struct vector *get_vector(struct configd_conn *conn, struct request *req, struct configd_error *error)
+struct vector *get_vector(struct configd_conn *conn, const struct request *req, struct configd_error *error)
 {
 	struct response resp;
 
@@ -734,7 +734,7 @@ error:
 	return NULL;
 }
 
-struct map *get_map(struct configd_conn *conn, struct request *req, struct configd_error *error)
+struct map *get_map(struct configd_conn *conn, const struct request *req, struct configd_error *error)
 {
 	struct response resp;
 

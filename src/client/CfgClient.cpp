@@ -65,7 +65,7 @@ static std::string mkpath(const std::vector<std::string> &cfgpath)
 
 static int callintapi(struct configd_conn *_conn, intapi *api) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	int result = api(_conn, &err);
 	if (result == -1) {
 		std::string msg(err.text);
@@ -78,7 +78,7 @@ static int callintapi(struct configd_conn *_conn, intapi *api) throw(CfgClientEx
 
 static int callintapi(struct configd_conn *_conn, intapistr *api, const std::string &str) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	int result = api(_conn, str.c_str(), &err);
 	if (result == -1) {
 		std::string msg(err.text);
@@ -96,7 +96,7 @@ static int callintapi(struct configd_conn *_conn, intapistr *api, const std::vec
 
 static int callintapi(struct configd_conn *_conn, intapiintstr *api, int param, const std::string &str) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	int result = api(_conn, param, str.c_str(), &err);
 	if (result == -1) {
 		std::string msg(err.text);
@@ -114,7 +114,7 @@ static int callintapi(struct configd_conn *_conn, intapiintstr *api, int param, 
 
 static std::string callstrapi(struct configd_conn *_conn, strapi *api) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	char *result = api(_conn, &err);
 	if (result == NULL) {
 		std::string msg(err.text);
@@ -128,7 +128,7 @@ static std::string callstrapi(struct configd_conn *_conn, strapi *api) throw(Cfg
 
 static std::string callstrapi(struct configd_conn *_conn, strapistr *api, const std::string &str) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	char *result = api(_conn, str.c_str(), &err);
 	if (result == NULL) {
 		std::string msg(err.text);
@@ -148,7 +148,7 @@ static std::string callstrapi(struct configd_conn *_conn, strapistr *api, const 
 
 static std::string callstrapi(struct configd_conn *_conn, strapiintstrstr *api, int p1, const std::string &str, const std::string &param) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	char *result = api(_conn, p1, str.c_str(), param.c_str(), &err);
 	if (result == NULL) {
 		std::string msg(err.text);
@@ -168,7 +168,7 @@ static std::string callstrapi(struct configd_conn *_conn, strapiintstrstr *api, 
 
 static std::string callstrapi(struct configd_conn *_conn, strapiintstr *api, int param, const std::string &str) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	char *result = api(_conn, param, str.c_str(), &err);
 	if (result == NULL) {
 		std::string msg(err.text);
@@ -198,7 +198,7 @@ static std::vector<std::string> vec_to_std_vec(struct vector *vec)
 
 static std::vector<std::string> callvecapi(struct configd_conn *_conn, vecapistr *api, const std::vector<std::string> &path) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	std::string cpath = mkpath(path);
 	struct vector *vresult = api(_conn, cpath.c_str(), &err);
 	if (vresult == NULL) {
@@ -214,7 +214,7 @@ static std::vector<std::string> callvecapi(struct configd_conn *_conn, vecapistr
 
 static std::vector<std::string> callvecapi(struct configd_conn *_conn, vecapiintstr *api, int param, const std::vector<std::string> &path) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	std::string cpath = mkpath(path);
 	struct vector *vresult = api(_conn, param, cpath.c_str(), &err);
 	if (vresult == NULL) {
@@ -247,7 +247,7 @@ static std::map<std::string, std::string> map_to_std_map(struct map *m)
 
 static std::map<std::string, std::string> callmapapi(struct configd_conn *_conn, mapapi *api) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	struct map *mresult = api(_conn, &err);
 	if (mresult == NULL) {
 		std::string msg(err.text);
@@ -262,7 +262,7 @@ static std::map<std::string, std::string> callmapapi(struct configd_conn *_conn,
 
 static std::map<std::string, std::string> callmapapi(struct configd_conn *_conn, mapapistr *api, const std::vector<std::string> &path) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	std::string cpath = mkpath(path);
 	struct map *mresult = api(_conn, cpath.c_str(), &err);
 	if (mresult == NULL) {
@@ -278,7 +278,7 @@ static std::map<std::string, std::string> callmapapi(struct configd_conn *_conn,
 
 static std::map<std::string, std::string> callmapapi(struct configd_conn *_conn, mapapiintstr *api, int param, const std::vector<std::string> &path) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	std::string cpath = mkpath(path);
 	struct map *mresult = api(_conn, param, cpath.c_str(), &err);
 	if (mresult == NULL) {
@@ -307,6 +307,9 @@ CfgClient::CfgClient() throw(CfgClientFatalException)
 {
 	_conn = new struct configd_conn;
 	if (configd_open_connection(_conn) < 0) {
+		/* the destructor does not run for a constructor that throws */
+		delete _conn;
+		_conn = nullptr;
 		throw(CfgClientFatalException("failed to connect to configd"));
 	}
 	char *sid = getenv("VYATTA_CONFIG_SID");
@@ -332,9 +335,9 @@ void CfgClient::SessionAttach(const std::string &sessid) throw (CfgClientExcepti
 			configd_set_session_id(_conn, _sessionid.c_str());
 			throw(CfgClientException("session "+sessid+" does not exist"));
 		}
-	} catch (CfgClientException e) {
+	} catch (const CfgClientException &) {
 		configd_set_session_id(_conn, _sessionid.c_str());
-		throw(e);
+		throw;
 	}
 }
 
@@ -433,11 +436,9 @@ std::string CfgClient::Validate() throw(CfgClientException)
 	return callstrapi(_conn, configd_validate);
 }
 
-std::string CfgClient::ValidateConfig(const std::string encoding, const std::string config) throw(CfgClientException)
+std::string CfgClient::ValidateConfig(const std::string &encoding, const std::string &config) throw(CfgClientException)
 {
-	struct configd_error err = {
-		0,
-	};
+	struct configd_error err = {};
 
 	char *result = configd_validate_config( _conn, encoding.c_str(),
 			config.c_str(), &err);
@@ -458,7 +459,7 @@ std::string CfgClient::ValidateConfig(const std::string encoding, const std::str
 
 std::string CfgClient::Save() throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	char *result = configd_save(_conn, NULL, &err);
 	if (result == NULL) {
 		std::string msg;
@@ -611,9 +612,9 @@ std::string CfgClient::TreeGetFullInternal(Database db, const std::vector<std::s
 	return callstrapi(_conn, configd_tree_get_full_internal, db, path);
 }
 
-std::string CfgClient::CallRPC(const std::string ns, const std::string name, const std::string input) throw(CfgClientException)
+std::string CfgClient::CallRPC(const std::string &ns, const std::string &name, const std::string &input) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	char *result = configd_call_rpc(_conn, ns.c_str(), name.c_str(), input.c_str(), &err);
 	if (result == NULL) {
 		std::string msg;
@@ -627,9 +628,9 @@ std::string CfgClient::CallRPC(const std::string ns, const std::string name, con
 	return res;
 }
 
-std::string CfgClient::CallRPCXML(const std::string ns, const std::string name, const std::string input) throw(CfgClientException)
+std::string CfgClient::CallRPCXML(const std::string &ns, const std::string &name, const std::string &input) throw(CfgClientException)
 {
-	struct configd_error err = { 0, };
+	struct configd_error err = {};
 	char *result = configd_call_rpc_xml(_conn, ns.c_str(), name.c_str(), input.c_str(), &err);
 	if (result == NULL) {
 		std::string msg;
@@ -643,8 +644,8 @@ std::string CfgClient::CallRPCXML(const std::string ns, const std::string name, 
 	return res;
 }
 
-std::string CfgClient::EditConfigXML(const std::string target, const std::string default_operation, const std::string test_option, const std::string error_option, const std::string config) throw(CfgClientException) {
-	struct configd_error err = { 0, };
+std::string CfgClient::EditConfigXML(const std::string &target, const std::string &default_operation, const std::string &test_option, const std::string &error_option, const std::string &config) throw(CfgClientException) {
+	struct configd_error err = {};
 	char *result = configd_edit_config_xml(_conn, target.c_str(), default_operation.c_str(),
 		test_option.c_str(), error_option.c_str(), config.c_str(), &err);
 	if (result == NULL) {
@@ -660,16 +661,14 @@ std::string CfgClient::EditConfigXML(const std::string target, const std::string
 }
 
 std::string CfgClient::CopyConfig(
-	const std::string source_datastore,
-	const std::string source_encoding,
-	const std::string source_config,
-	const std::string source_url,
-	const std::string target_datastore,
-	const std::string target_url) throw(CfgClientException)
+	const std::string &source_datastore,
+	const std::string &source_encoding,
+	const std::string &source_config,
+	const std::string &source_url,
+	const std::string &target_datastore,
+	const std::string &target_url) throw(CfgClientException)
 {
-	struct configd_error err = {
-		0,
-	};
+	struct configd_error err = {};
 
 	char *result = configd_copy_config(_conn, source_datastore.c_str(),
 		source_encoding.c_str(), source_config.c_str(),

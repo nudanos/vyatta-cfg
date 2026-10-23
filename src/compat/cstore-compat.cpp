@@ -61,10 +61,12 @@ Cstore::~Cstore() {
 }
 
 void Cstore::connect() {
-	conn = (struct configd_conn *)malloc(sizeof(struct configd_conn));
-	if (!conn)
+	conn = static_cast<struct configd_conn *>(malloc(sizeof(struct configd_conn)));
+	if (!conn) {
+		conn_established = false;
 		return;
-	if (!conn || (configd_open_connection(conn) == -1)) {
+	}
+	if (configd_open_connection(conn) == -1) {
 		conn_established = false;
 	} else {
 		char *sid = getenv("VYATTA_CONFIG_SID");
@@ -95,7 +97,7 @@ bool Cstore::cfgGetTree(StringVector &path, std::string &result, bool active_cfg
 	}
 
 	char *cpath = strVecToChar(path);
-	struct configd_error err = {0};
+	struct configd_error err = {};
     char *tree = configd_tree_get_internal(conn, db, cpath, &err);
 	if (tree == NULL) {
     	free(cpath);
@@ -287,14 +289,14 @@ void Cstore::cfgPathGetChildNodesStatus(StringVector &path, StringMap &result) {
 	nodeGetDB(RUNNING, path, avec);
 	nodeGetDB(CANDIDATE, path, wvec);
 
-	for (StringVector::iterator it = avec.begin(); it != avec.end(); it++)
+	for (StringVector::iterator it = avec.begin(); it != avec.end(); ++it)
 		umap[*it] = true;
-	for (StringVector::iterator it = wvec.begin(); it != wvec.end(); it++)
+	for (StringVector::iterator it = wvec.begin(); it != wvec.end(); ++it)
 		umap[*it] = true;
 
 	assertSession(__func__);
 	StringVector ppath = StringVector(path);
-	for (std::map<std::string, bool>::iterator it = umap.begin(); it != umap.end(); it++) {
+	for (std::map<std::string, bool>::iterator it = umap.begin(); it != umap.end(); ++it) {
 		std::string c = (*it).first;
 		ppath.push_back(c);
 		char *cppath = strVecToChar(ppath);
@@ -331,10 +333,10 @@ void Cstore::cfgPathGetDeletedValues(StringVector &path, StringVector &result) {
 	if (!nodeGetDB(CANDIDATE, path, svec)) {
 		return;
 	}
-	for (StringVector::iterator ait = avec.begin(); ait != avec.end(); ait++) { 
+	for (StringVector::iterator ait = avec.begin(); ait != avec.end(); ++ait) { 
 		bool found = false;
 		for (StringVector::iterator sit = svec.begin();
-		     sit != svec.end(); sit++) {
+		     sit != svec.end(); ++sit) {
 			if ((*sit) == (*ait)) {
 				found = true;
 			}
@@ -346,7 +348,7 @@ void Cstore::cfgPathGetDeletedValues(StringVector &path, StringVector &result) {
 	return;
 }
 
-bool Cstore::getParsedTmpl(StringVector &path, StringMap &tmap, bool allow_val) {
+bool Cstore::getParsedTmpl(StringVector &path, StringMap &tmap, bool /* allow_val */) {
 	if (!conn_established) {
 		return false;
 	}
@@ -380,7 +382,7 @@ void Cstore::tmplGetChildNodes(StringVector &path, StringVector &cnodes) {
 	vector_free(v);
 	return;
 }
-bool Cstore::validateTmplPath(StringVector &path, bool validate_vals) {
+bool Cstore::validateTmplPath(StringVector &path, bool /* validate_vals */) {
 	if (!conn_established) {
 		return NULL;
 	}
@@ -444,13 +446,13 @@ char *Cstore::strVecToChar(StringVector &sv) {
 		break;
 	default:
 		for (size_t i = 0; i < sv.size()-1; i++) {
-			char *cstr = (char *)malloc(sv[i].size() * URI_MULT);
+			char *cstr = static_cast<char *>(malloc(sv[i].size() * URI_MULT));
 			if (!cstr) return NULL;
 			uriEscapeA(sv[i].c_str(), cstr, URI_FALSE, URI_TRUE);
 			path = path + std::string(cstr) + "/";
 			free(cstr);
 		}
-		char *cstr = (char *)malloc(sv[sv.size()-1].size() * URI_MULT);
+		char *cstr = static_cast<char *>(malloc(sv[sv.size()-1].size() * URI_MULT));
 		if (!cstr) return NULL;
 		uriEscapeA(sv[sv.size()-1].c_str(), cstr, URI_FALSE, URI_TRUE);
 		path += std::string(cstr);

@@ -43,7 +43,7 @@ cstore_get_var_ref(void *handle, const char *ref_str, vtw_type_e *type,
 
 	Cpath orig_cfg_path(get_cfg_path());
 	Cpath cpath(orig_cfg_path);
-	Ctemplate tmpl((struct configd_conn *)handle, get_cfg_path());
+	Ctemplate tmpl(static_cast<struct configd_conn *>(handle), get_cfg_path());
 	if (!tmpl.get()) {
 		return 0;
 	}
@@ -54,11 +54,15 @@ cstore_get_var_ref(void *handle, const char *ref_str, vtw_type_e *type,
 
 	std::string vr(ref_str);
 	bool bFromActive(from_active);
-	VarRef vref(handle, vr, (bool *)ismulti, bFromActive);
+	/* VarRef reports through a bool; *ismulti is an int (a bool written
+	 * through the int pointer set one byte of it) */
+	bool multi = (*ismulti != 0);
+	VarRef vref(handle, vr, &multi, bFromActive);
+	*ismulti = multi ? 1 : 0;
 
 	std::string value;
 	vtw_type_e t;
-	if (!vref.getValue(value, *ismulti, t)) {
+	if (!vref.getValue(value, multi, t)) {
 		set_cfg_path(orig_cfg_path.to_path_string().c_str());
 		return 0;
 	}

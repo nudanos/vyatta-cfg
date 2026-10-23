@@ -142,7 +142,7 @@ static vtw_act_type get_action_type(void)
 
 static int is_delete(vtw_act_type action)
 {
-	char *commit_action = getenv(COMMIT_ACTION_ENV);
+	const char *commit_action = getenv(COMMIT_ACTION_ENV);
 	if (!commit_action)
 		return action == delete_act;
 	return (strcmp(commit_action, "DELETE") == 0
@@ -161,7 +161,7 @@ static int process_cli_script(const std::string &fname, const std::string &cpath
 	}
 
 	Cpath pcomps(cpath);
-	Ctemplate configd_def((struct configd_conn*)var_ref_handle, pcomps.to_path_string().c_str());
+	Ctemplate configd_def(static_cast<struct configd_conn *>(var_ref_handle), pcomps.to_path_string().c_str());
 	if (!configd_def.get()) {
 		std::cerr << "could not get template from configd";
 		return EXIT_FAILURE;
@@ -182,11 +182,6 @@ static int process_cli_script(const std::string &fname, const std::string &cpath
 	set_in_delete_action(is_delete(act_type));
 
 	vtw_node *actions = def.actions[act_type].vtw_list_head;
-	Cpath path(cpath);
-	std::string disp_path(" ");
-	disp_path += path.to_string();
-	disp_path += " ";
-
 	char *at_string = extract_at_string(cpath);
 	set_at_string(at_string);
 	set_cfg_path(cpath.c_str());

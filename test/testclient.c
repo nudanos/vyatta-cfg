@@ -791,15 +791,15 @@ static int dispatch(struct configd_conn *conn, int cmd_id, char *arg, size_t arg
 			printf("%d\n", i);
 			for (int j = 0; j < 10000; j++) {
 				char *buf1;
-				struct configd_error err;
+				struct configd_error set_err;
 				if (asprintf(&buf1, "/foo/%d/bar/%d/baz/%d %d", i, j, i, j) == -1) {
 					free(buf1);
 					return -1;
 				}
-				buf = configd_set(conn, buf1, &err);
+				buf = configd_set(conn, buf1, &set_err);
 				if (!buf) {
 					fprintf(stdout, "ERROR performing set\n");
-					dump_error(&err);
+					dump_error(&set_err);
 					continue;
 				}
 				//fprintf(stdout, "Set %s:\n\t%s\n", buf1, buf);

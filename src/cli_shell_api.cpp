@@ -114,7 +114,7 @@ getEditEnv(struct configd_conn *conn, const char *args)
 // read current env, and if value go up 2 levels otherwise go up one
 /* outputs an environment string to be "eval"ed */
 static void
-getEditUpEnv(struct configd_conn *conn, const char *args)
+getEditUpEnv(struct configd_conn *conn, const char * /* args */)
 {
 	char *parent;
 	char *epath_up = NULL;
@@ -154,16 +154,16 @@ getEditUpEnv(struct configd_conn *conn, const char *args)
 
 /* outputs an environment string to be "eval"ed */
 static void
-getEditResetEnv(struct configd_conn *conn, const char *args)
+getEditResetEnv(struct configd_conn * /* conn */, const char * /* args */)
 {
 	printf(EDIT_FMT, "/", "", "");
 }
 
 static void
-editLevelAtRoot(struct configd_conn *conn, const char *args)
+editLevelAtRoot(struct configd_conn * /* conn */, const char * /* args */)
 {
 
-	char *epath_env = getenv(EPATH_ENV);
+	const char *epath_env = getenv(EPATH_ENV);
 
 	if (!epath_env || (strcmp(epath_env, "/") != 0))
 		exit(EXIT_FAILURE);
@@ -182,7 +182,7 @@ getCompletionEnv(struct configd_conn *conn, const char *args)
 
 /* outputs a string */
 static void
-getEditLevelStr(struct configd_conn *conn, const char *args)
+getEditLevelStr(struct configd_conn * /* conn */, const char * /* args */)
 {
 	char *epath = NULL;
 	size_t epath_len = 0;
@@ -198,56 +198,56 @@ getEditLevelStr(struct configd_conn *conn, const char *args)
 }
 
 static void
-markSessionUnsaved(struct configd_conn *conn, const char *args)
+markSessionUnsaved(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_mark_unsaved(conn, NULL) != 0)
 		exit(EXIT_FAILURE);
 }
 
 static void
-unmarkSessionUnsaved(struct configd_conn *conn, const char *args)
+unmarkSessionUnsaved(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_mark_saved(conn, NULL) != 0)
 		exit(EXIT_FAILURE);
 }
 
 static void
-sessionUnsaved(struct configd_conn *conn, const char *args)
+sessionUnsaved(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_saved(conn, NULL) != 0)
 		exit(EXIT_FAILURE);
 }
 
 static void
-sessionChanged(struct configd_conn *conn, const char *args)
+sessionChanged(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_changed(conn, NULL) != 1)
 		exit(EXIT_FAILURE);
 }
 
 static void
-teardownSession(struct configd_conn *conn, const char *args)
+teardownSession(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_teardown(conn, NULL) == -1)
 		exit(EXIT_FAILURE);
 }
 
 static void
-setupSession(struct configd_conn *conn, const char *args)
+setupSession(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_setup(conn, NULL) == -1)
 		exit(EXIT_FAILURE);
 }
 
 static void
-setupSharedSession(struct configd_conn *conn, const char *args)
+setupSharedSession(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_setup_shared(conn, NULL) == -1)
 		exit(EXIT_FAILURE);
 }
 
 static void
-inSession(struct configd_conn *conn, const char *args)
+inSession(struct configd_conn *conn, const char * /* args */)
 {
 	if (configd_sess_exists(conn, NULL) != 1)
 		exit(EXIT_FAILURE);
@@ -521,7 +521,7 @@ getSchema(struct configd_conn *conn, const char *args)
 {
 	char *argz = NULL;
 	size_t argz_len = 0;
-	char **argv = (char**)calloc(1, (argz_count(argz, argz_len) + 1) * sizeof(char *));
+	char **argv = static_cast<char **>(calloc(1, (argz_count(argz, argz_len) + 1) * sizeof(char *)));
 
 	if (!argv)
 		exit(EXIT_FAILURE);
@@ -566,9 +566,9 @@ static void
 showCfg(struct configd_conn *conn, const char *args)
 {
 	char *result;
-	bool inSession = configd_sess_exists(conn, NULL);
-	bool active_only = (!inSession || op_show_active_only);
-	bool working_only = (inSession && op_show_working_only);
+	bool in_session = configd_sess_exists(conn, NULL);
+	bool active_only = (!in_session || op_show_active_only);
+	bool working_only = (in_session && op_show_working_only);
 	int flags = get_show_flags();
 
 	if (active_only)
@@ -705,7 +705,7 @@ saveConfig(struct configd_conn *conn, const char * args)
 // Deprecated API
 /* output the "pre-commit hook dir" */
 static void
-getPreCommitHookDir(struct configd_conn *conn, const char *args)
+getPreCommitHookDir(struct configd_conn * /* conn */, const char * /* args */)
 {
 	//syslog(LOG_WARNING, "%s: Deprecated API", __func__);
 	printf("/etc/commit/pre-hooks.d");
@@ -715,7 +715,7 @@ getPreCommitHookDir(struct configd_conn *conn, const char *args)
 // Deprecated API
 /* output the "post-commit hook dir" */
 static void
-getPostCommitHookDir(struct configd_conn *conn, const char *args)
+getPostCommitHookDir(struct configd_conn * /* conn */, const char * /* args */)
 {
 	//syslog(LOG_WARNING, "%s: Deprecated API", __func__);
 	printf("/etc/commit/post-hooks.d");
@@ -747,8 +747,8 @@ getActiveTree(struct configd_conn *conn, const char *args)
 static void
 migrateFile(struct configd_conn *conn, const char *filename)
 {
-	struct configd_error err = {0};
-	char *str = configd_file_migrate(conn, filename, &err);
+	struct configd_error err = {};
+	const char *str = configd_file_migrate(conn, filename, &err);
 	if (!str) {
 		if (err.text != NULL) {
 			fprintf(stderr, "%s", err.text);
@@ -837,7 +837,7 @@ static OpT ops[] = {
 
 	OP(migrateFile, -1, NULL, 1, "Must specify filename", !USE_EDIT, !INS_EDIT, USE_CONN),
 
-	{NULL, -1, NULL, -1, NULL, false, false, false}
+	{NULL, -1, NULL, -1, NULL, false, false, false, NULL}
 };
 #define OP_exact_args  ops[op_idx].op_exact_args
 #define OP_min_args    ops[op_idx].op_min_args
@@ -895,7 +895,7 @@ main(int argc, char **argv)
 		}
 	}
 	int nargs = argc - optind - 1;
-	char *oname = argv[optind];
+	const char *oname = argv[optind];
 	char **nargv = &(argv[optind + 1]);
 
 	int i = 0;

@@ -76,7 +76,7 @@ char *getCompletionEnv(struct configd_conn *cstore, const char *path)
 		pcomps.push_unescape(comp);
 	}
 	comp = argz_next(comps_argz, comps_size, comp);
-	std::string last_comp = comp;
+	const std::string last_comp = comp;
 	free(comps_argz);
 
 	bool exists_only = (cmd == "delete" || cmd == "show"
@@ -132,10 +132,9 @@ char *getCompletionEnv(struct configd_conn *cstore, const char *path)
 		return NULL;
 	}
 	const char *next = NULL;
-	size_t pos;
 	while ((next = map_next(m, next)) != NULL) {
 		std::string entry(next), key, value;
-		pos = entry.find("=");
+		size_t pos = entry.find("=");
 		if (pos == std::string::npos) {
 			continue;
 		}
@@ -168,10 +167,9 @@ char *getCompletionEnv(struct configd_conn *cstore, const char *path)
 			return NULL;
 		}
 		sort(comp_vals.begin(), comp_vals.end());
-		std::string value, key;
 		for (size_t i = 0; i < comp_vals.size(); i++) {
-			key = comp_vals[i];
-			value = cmap[key];
+			const std::string &key = comp_vals[i];
+			const std::string &value = cmap[key];
 			std::pair<std::string, std::string> hpair(key, value);
 			help_pairs.push_back(hpair);
 		}

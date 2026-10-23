@@ -54,10 +54,10 @@ void response_free(struct response *);
 int send_request(struct configd_conn *, const struct request *);
 int recv_response(struct configd_conn *, struct response *);
 /* Helpers to get specific response types */
-char *get_str(struct configd_conn *, struct request *, struct configd_error *);
-int get_int(struct configd_conn *, struct request *, struct configd_error *);
-struct vector *get_vector(struct configd_conn *, struct request *, struct configd_error *);
-struct map *get_map(struct configd_conn *, struct request *, struct configd_error *);
+char *get_str(struct configd_conn *, const struct request *, struct configd_error *);
+int get_int(struct configd_conn *, const struct request *, struct configd_error *);
+struct vector *get_vector(struct configd_conn *, const struct request *, struct configd_error *);
+struct map *get_map(struct configd_conn *, const struct request *, struct configd_error *);
 
 // 'local' versions of these allow CppUTest to track memory allocation and
 // thus check for memory leaks in the unit tests.
