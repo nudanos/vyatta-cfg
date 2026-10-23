@@ -11,46 +11,32 @@ use strict;
 use warnings;
 
 use JSON;
-use Config::IniFiles;
 
 my $os_release_file = "/etc/os-release";
 
-my %out;
+sub unquote {
+    my ($value) = @_;
+    $value =~ s{^"(.*)"}{$1}x;
+    return $value;
+}
 
-sub build_output {
-    my ( $version, $name, $release ) = @_;
-    my %output;
-
-    $version =~ s/^"(.*)"/$1/; 
-    $output{"os-version"} = $version; #=~ s/^"(.*)"/$version/; 
-
-    $name =~ s/^"(.*)"/$1/; 
-    $output{"os-name"}    = $name;
-
-    $release =~ s/^"(.*)"/$1/; 
-    $output{"os-release"} = $release;
-
-    return %output;
+# os-release as a hash of KEY => VALUE, empty if it can't be read.
+sub read_os_release {
+    open my $fh, '<', $os_release_file or return;
+    my @lines = <$fh>;
+    close $fh;
+    return map { m{^(\w+)=(.*)$}x ? ( $1 => unquote($2) ) : () } @lines;
 }
 
 sub get_version {
-    my $fh;
-
-    open ($fh, '<', $os_release_file) or return build_output('unknown', 'unknown', 'unknown');
-
-    my $ini = Config::IniFiles->new( -file => $fh, -fallback => "os-release" );
-
-    my $version = $ini->val('os-release', 'BUILD_ID', "unknown");
-    $version = $ini->val('os-release', 'VERSION_ID', $version);
-
-    my $name = $ini->val('os-release', 'NAME', 'unknown',);
-    $name = $ini->val('os-release', 'PRETTY_NAME', $name,);
-    
-    my $release = $ini->val('os-release', 'VYATTA_PROJECT_ID', "unknown");
-
-    return build_output( $version, $name, $release );
+    my %os = read_os_release();
+    return (
+        "os-version" => $os{VERSION_ID}  // $os{BUILD_ID} // "unknown",
+        "os-name"    => $os{PRETTY_NAME} // $os{NAME}     // "unknown",
+        "os-release" => $os{VYATTA_PROJECT_ID} // "unknown",
+    );
 }
 
-%out = get_version();
+my %out = get_version();
 
 print encode_json( \%out );

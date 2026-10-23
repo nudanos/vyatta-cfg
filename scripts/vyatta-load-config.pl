@@ -23,105 +23,84 @@
 use strict;
 use warnings;
 use lib "/opt/vyatta/share/perl5/";
-use POSIX;
-use IO::Prompt;
-use Getopt::Long;
-use Sys::Syslog qw(:standard :macros);
+use Sys::Syslog    qw(:standard :macros);
 use Vyatta::Config qw(get_short_config_path);
 
-$SIG{'INT'} = 'IGNORE';
+local $SIG{'INT'} = 'IGNORE';
 
-my $etcdir       = $ENV{vyatta_sysconfdir};
-my $sbindir      = $ENV{vyatta_sbindir};
-my $bootpath     = $etcdir . "/config";
-my $load_file    = $bootpath . "/config.boot";
-my $url_tmp_file = $bootpath . "/config.boot.$$";
-my $ri_name;
+my $etcdir        = $ENV{vyatta_sysconfdir};
+my $sbindir       = $ENV{vyatta_sbindir};
+my $bootpath      = $etcdir . "/config";
+my $url_tmp_file  = $bootpath . "/config.boot.$$";
+my %url_protocols = map { $_ => 1 } qw(tftp ftp http scp);
 
-sub usage {
-    print "Usage: $0 <filename> | $0 routing-instance <ri-name> <filename>\n";
-    exit 0;
+sub fail {
+    my ($msg) = @_;
+    print "$msg\n";
+    exit 1;
 }
 
-my $mode = 'local';
-my $proto;
-
-if ( $#ARGV == 2 && $ARGV[0] eq 'routing-instance' ) {
-    $ri_name = $ARGV[1];
-    $load_file = $ARGV[2];
-} else {
-    if ( defined( $ARGV[0] ) ) {
-        $load_file = $ARGV[0];
-    }
+# Returns (load file, routing instance or undef).
+sub parse_args {
+    return ( $ARGV[2], $ARGV[1] )
+      if @ARGV == 3 && $ARGV[0] eq 'routing-instance';
+    return ( $ARGV[0] // "$bootpath/config.boot", undef );
 }
 
-my $orig_load_file = $load_file;
-
-if ( $load_file =~ /^[^\/]\w+:\// ) {
-    if ( $load_file =~ /^(\w+):\/\/\w/ ) {
-        $mode  = 'url';
-        $proto = lc($1);
-        unless( $proto eq 'tftp' ||
-		$proto eq 'ftp'  ||
-		$proto eq 'http' ||
-		$proto eq 'scp' ) {
-	    die "Invalid url protocol [$proto]\n";
-        }
-    } else {
-        print "Invalid url [$load_file]\n";
-        exit 1;
-    }
+# A load file of the form proto://... is a URL; anything else is a path.
+sub is_url {
+    my ($load_file) = @_;
+    return 0 if $load_file !~ m{^[^/]\w+:/}x;
+    my ($proto) = $load_file =~ m{^(\w+)://\w}x
+      or fail("Invalid url [$load_file]");
+    $proto = lc $proto;
+    die "Invalid url protocol [$proto]\n" if !$url_protocols{$proto};
+    return 1;
 }
 
-if ( $mode eq 'local' and !( $load_file =~ /^\// ) ) {
-    # relative path
+# Fetches a URL into $url_tmp_file.
+sub fetch_url {
+    my ( $url, $ri_name ) = @_;
+    fail("Package [curl] not installed") if !-f '/usr/bin/curl';
+    my @ri = $ri_name ? ("--ri=$ri_name") : ();
+    my $rc = system "$sbindir/vyatta-transfer-url", @ri, "--outfile=$url_tmp_file", $url;
+    fail("Can not open remote configuration file $url") if $rc;
+    return;
+}
+
+my ( $orig_load_file, $ri_name ) = parse_args();
+my $load_file = $orig_load_file;
+if ( is_url($load_file) ) {
+    fetch_url( $load_file, $ri_name );
+    $load_file = $url_tmp_file;
+}
+elsif ( $load_file !~ m{^/}x ) {
     $load_file = "$bootpath/$load_file";
 }
 
-if ( $mode eq 'url' ) {
-    if ( !-f '/usr/bin/curl' ) {
-        print "Package [curl] not installed\n";
-        exit 1;
-    }
-    my $rc;
-    if ($ri_name) {
-        $rc = system("$sbindir/vyatta-transfer-url",
-                     "--ri=$ri_name",
-                     "--outfile=$url_tmp_file",
-                     "$load_file");
-    } else {
-        $rc = system("$sbindir/vyatta-transfer-url",
-                     "--outfile=$url_tmp_file",
-                     "$load_file");
-    }
-    if ($rc) {
-        print "Can not open remote configuration file $load_file\n";
-        exit 1;
-    }
-
-    $load_file = $url_tmp_file;
-}
-
 # log it
-openlog( $0, "", LOG_USER );
+openlog( $0, q{}, LOG_USER );
 my $login = getlogin() || getpwuid($<) || "unknown";
 syslog( "warning", "Load config [$orig_load_file] by $login" );
 
-# do config migration via configd since this script is called by unprivileged users directly.
-system("cli-shell-api migrateFile $load_file");
+# do config migration via configd since this script is called by
+# unprivileged users directly.
+system 'cli-shell-api', 'migrateFile', $load_file;
 
 # when presenting to users, show shortened /config path
 my $shortened_load_file = get_short_config_path($load_file);
 print "Loading configuration from '$shortened_load_file'...\n";
 
-my $cobj = new Vyatta::Config;
-# "load" => use backend through API
-system("cli-shell-api loadFileReportWarnings $load_file");
+my $cobj = Vyatta::Config->new();
 
-if (!($cobj->sessionChanged())) {
-  print "No configuration changes to commit\n";
-  exit 0;
+# "load" => use backend through API
+system 'cli-shell-api', 'loadFileReportWarnings', $load_file;
+unlink $url_tmp_file if $load_file eq $url_tmp_file;
+
+if ( !$cobj->sessionChanged() ) {
+    print "No configuration changes to commit\n";
+    exit 0;
 }
 
-print ("\nLoad complete.  Use 'commit' to make changes active.\n");
+print "\nLoad complete.  Use 'commit' to make changes active.\n";
 exit 0;

@@ -12,63 +12,41 @@ use warnings;
 
 use JSON;
 
-my @util_out;
+# output leaf => mpstat column
+my @columns = (
+    [ "cpu"         => "CPU" ],
+    [ "user"        => "%usr" ],
+    [ "nice"        => "%nice" ],
+    [ "sys"         => "%sys" ],
+    [ "iowait"      => "%iowait" ],
+    [ "irq"         => "%irq" ],
+    [ "soft"        => "%soft" ],
+    [ "steal"       => "%steal" ],
+    [ "guest"       => "%guest" ],
+    [ "niced-guest" => "%gnice" ],
+    [ "idle"        => "%idle" ],
+);
 
-sub build_output {
-    my ($in) = @_;
-
-    my $item;
-
-    $item = {
-        "cpu"         => $in->{cpu},
-        "user"        => $in->{user},
-        "nice"        => $in->{nice},
-        "sys"         => $in->{sys},
-        "iowait"      => $in->{iowait},
-        "irq"         => $in->{irq},
-        "soft"        => $in->{soft},
-        "steal"       => $in->{steal},
-        "guest"       => $in->{guest},
-        "niced-guest" => $in->{gnice},
-        "idle"        => $in->{idle}
-    };
-
-    push @util_out, $item;
-
-}
-
+# Columns are found by name in mpstat's header line and counted from the
+# right, so a 12-hour time ("10:17:35 AM") and a 24-hour one parse alike.
 sub get_cpu_utils {
-    my $cpu_utils = `mpstat -P ALL`;
-    my @utils_array = split( /\n/m, $cpu_utils );
+    open my $fh, '-|', 'mpstat', '-P', 'ALL'
+      or die "Could not run mpstat\n";
+    my @lines = <$fh>;
+    close $fh;
 
-    for ( my $i = 3 ; $utils_array[$i] ; $i++ ) {
-        my @line_array = grep { /\S/ } split( /\s/m, $utils_array[$i] );
-
-        shift @line_array;    #skip time
-        shift @line_array;    #skip AM/PM
-
-        my $item;
-
-        $item = {
-            "cpu"    => shift @line_array,
-            "user"   => shift @line_array,
-            "nice"   => shift @line_array,
-            "sys"    => shift @line_array,
-            "iowait" => shift @line_array,
-            "irq"    => shift @line_array,
-            "soft"   => shift @line_array,
-            "steal"  => shift @line_array,
-            "guest"  => shift @line_array,
-            "gnice"  => shift @line_array,
-            "idle"   => shift @line_array
-        };
-
-        build_output($item);
+    my ( @util_out, %index );
+    foreach my $line (@lines) {
+        my @fields = split q{ }, $line;
+        if ( !%index ) {
+            next if !grep { $_ eq 'CPU' } @fields;
+            %index = map { $fields[$_] => $_ - @fields } 0 .. $#fields;
+            next;
+        }
+        last if !@fields;
+        push @util_out, { map { $_->[0] => $fields[ $index{ $_->[1] } ] } @columns };
     }
-
-    my %output;
-    $output{"utilization"} = \@util_out;
-    return %output;
+    return ( utilization => \@util_out );
 }
 
 my %out = get_cpu_utils();

@@ -6,19 +6,28 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+use strict;
+use warnings;
 use JSON;
 use DateTime::Format::ISO8601;
 use DateTime;
 
-$ENV{VYATTA_PROCESS_CLIENT} = "gui2_rest";
+local $ENV{VYATTA_PROCESS_CLIENT} = "gui2_rest";
 
 my $tfmt = "%H:%M %Z %D";
 
 sub reboot_at {
     my ($time) = @_;
-    my $output =
-`/opt/vyatta/bin/vyatta-shutdown.pl --action reboot_at --at_time \"$time\"`;
-    die $output if $? != 0;
+    open my $fh, '-|', '/opt/vyatta/bin/vyatta-shutdown.pl',
+      '--action', 'reboot_at', '--at_time', $time
+      or die "Cannot run vyatta-shutdown.pl: $!\n";
+    my $output = do { local $/ = undef; <$fh> }
+      // q{};
+    close $fh;
+    if ( $? != 0 ) {
+        chomp $output;
+        die "$output\n";
+    }
 
     print encode_json( {} );
 
@@ -27,16 +36,17 @@ sub reboot_at {
 
 sub reboot_now {
 
-  #for some reason we have to schedule 1 hour and 1 minute ahead to get 1 minute
+    # for some reason we have to schedule 1 hour and 1 minute ahead to get
+    # 1 minute
     my $time =
       DateTime->now()->add( hours => 1, minutes => 1 )->strftime($tfmt);
-    reboot_at($time);
+    return reboot_at($time);
 }
 
-my $in = do { local $/ = undef; <> };
+my $in    = do { local $/ = undef; <> };
 my $input = decode_json($in);
 
-reboot_now if !defined( $input->{"at"} );
+reboot_now() if !defined $input->{"at"};
 
 my $time =
   DateTime::Format::ISO8601->parse_datetime( $input->{"at"} )->strftime($tfmt);

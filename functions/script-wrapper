@@ -11,6 +11,7 @@
 shopt -s expand_aliases
 
 # Include environment for with vyatta paths
+# shellcheck disable=SC1091 # reason: /etc/default/vyatta comes from another package
 source /etc/default/vyatta
 
 export PATH=/opt/vyatta/bin:/opt/vyatta/sbin:$PATH
@@ -49,7 +50,8 @@ export -f setup_env
 
 function list()
 {
-	local ntype=$(cli-shell-api getNodeType "${@:1}")
+	local ntype
+	ntype=$(cli-shell-api getNodeType "${@:1}")
 	case $ntype in
 	tag|non-leaf)
 		local -a tmp

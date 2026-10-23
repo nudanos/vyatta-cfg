@@ -6,6 +6,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+# shellcheck disable=SC1091 # reason: installed by vyatta-cfg, not at this path in the tree
 . /opt/vyatta/share/vyatta-cfg/functions/script-wrapper
 
 function usage () {
@@ -38,9 +39,6 @@ while getopts ":s:f:ci" opt; do
 		FILE=$OPTARG
 		break
 		;;
-	-)
-		break
-		;;
 	\?)
 		echo "Invalid option: -$OPTARG" >&2
 		usage
@@ -57,7 +55,7 @@ if [ -z "$SID" ]; then
 	SID=$BASHPID
 fi
 
-setup_env $SID
+setup_env "$SID"
 
 case $MODE in
 c)
@@ -73,13 +71,15 @@ f)
 	bash "$FILE" "$@"
 	builtin exit $?
 	;;
-.*)
+"")
+	;;
+*)
 	echo "Invalid set of options" >&2
 	builtin exit 1
 	;;
 esac
 
-t=$(tempfile) || exit
-trap "rm -f -- '$t'" EXIT
+t=$(mktemp) || exit
+trap 'rm -f -- "$t"' EXIT
 cat > "$t"
 bash "$t" "$@"

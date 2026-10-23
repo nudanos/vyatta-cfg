@@ -30,7 +30,22 @@ my $progname = basename($0);
 
 sub usage {
     return
-"Usage: $progname [ --ri=<ri_name> ] [ --outfile=<filename> | --infile=<filename> ] <url>\n";
+      "Usage: $progname [ --ri=<ri_name> ] [ --outfile=<filename> | --infile=<filename> ] <url>\n";
+}
+
+# Runs a command and returns its combined stdout and stderr.
+sub capture {
+    my (@cmd) = @_;
+    my $pid   = open my $fh, '-|';
+    die "Cannot fork: $!\n" if !defined $pid;
+    if ( !$pid ) {
+        open STDERR, '>&', \*STDOUT or die "Cannot redirect stderr: $!\n";
+        exec @cmd or die "Exec @cmd failed: $!\n";
+    }
+    my $out = do { local $/ = undef; <$fh> }
+      // q{};
+    close $fh;
+    return $out;
 }
 
 sub check_http {
@@ -40,59 +55,38 @@ sub check_http {
     # error codes are send back in html, so 1st try a header
     # and look for "HTTP/1.1 200 OK"
     #
-    my $rc = `vyatta-curl-wrapper -q -s -I $url 2>&1`;
-    if ( $rc =~ /HTTP\/\d+\.?\d\s+(\d+)\s+(.*)$/mi ) {
-        my $rc_code   = $1;
-        my $rc_string = $2;
-
-        die "http error: [$rc_code] $rc_string\n"
-          unless ( $rc_code == 200 );
-    }
-    else {
-        die "Error: $rc\n";
-    }
+    my $rc = capture( 'vyatta-curl-wrapper', '-q', '-s', '-I', $url );
+    my ( $rc_code, $rc_string ) = $rc =~ m{HTTP/\d+[.]?\d \s+ (\d+) \s+ (.*)$}mix
+      or die "Error: $rc\n";
+    die "http error: [$rc_code] $rc_string\n" if $rc_code != 200;
     return;
 }
 
-if ( $#ARGV != 0 ) {
-    die usage();
+if ( @ARGV != 1 ) {
+    print {*STDERR} usage();
+    exit 1;
 }
 
 my $url = $ARGV[0];
-unless ( $url =~ m#(^[^/]\w+)://# ) {
-    die "Can not parse URL $url\n";
-}
-my $proto = $1;
+my ($proto) = $url =~ m{(^[^/]\w+)://}x
+  or die "Can not parse URL $url\n";
 
-my @args;
+my @file_arg =
+    $outfile ? ("--outfile=$outfile")
+  : $infile  ? ("--infile=$infile")
+  :            ();
 if ($ri_name) {
 
     # re-exec in the proper routing-instance, leaving off ri_name
-    if ($outfile) {
-        @args = ( "/usr/sbin/chvrf", $ri_name, $0, "--outfile=$outfile", $url );
-    }
-    elsif ($infile) {
-        @args = ( "/usr/sbin/chvrf", $ri_name, $0, "--infile=$infile", $url );
-    }
-    else {
-        @args = ( "/usr/sbin/chvrf", $ri_name, $0, $url );
-    }
-    exec @args;
-    die "Exec @args failed: $!\n";
+    my @args = ( "/usr/sbin/chvrf", $ri_name, $0, @file_arg, $url );
+    exec @args or die "Exec @args failed: $!\n";
 }
 
-check_http($url)
-  if ( $proto eq 'http' );
+check_http($url) if $proto eq 'http';
 
-if ($outfile) {
-    @args = ( "vyatta-curl-wrapper", "-#", "-o", "$outfile", "$url" );
-}
-elsif ($infile) {
-    @args = ( "vyatta-curl-wrapper", "-#", "-T", "$infile", "$url" );
-}
-else {
-    # return data in stdout
-    @args = ( "vyatta-curl-wrapper", "-#", "$url" );
-}
-exec @args;
-die "Exec @args failed: $!\n";
+my @curl_file =
+    $outfile ? ( "-o", $outfile )
+  : $infile  ? ( "-T", $infile )
+  :            ();                  # return data in stdout
+my @args = ( "vyatta-curl-wrapper", "-#", @curl_file, $url );
+exec @args or die "Exec @args failed: $!\n";

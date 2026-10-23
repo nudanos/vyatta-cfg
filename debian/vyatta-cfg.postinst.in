@@ -10,19 +10,14 @@ if ! getent group vyattacfg >/dev/null; then
   addgroup --system vyattacfg >/dev/null
 fi
 
-for dir in $sysconfdir/config $prefix/config; do
-  if [ -d "$dir" ]; then
-    # already exists
-    chmod 2775 $dir
-  else
-    # create it
-    mkdir -m 2775 -p $dir
-  fi
-  chgrp vyattacfg $dir 2>/dev/null
+for dir in "$sysconfdir/config" "$prefix/config"; do
+  mkdir -p "$dir"
+  chmod 2775 "$dir"
+  chgrp vyattacfg "$dir" 2>/dev/null
 done
 
 # capability stuff
-touch -ac $sbindir/my_cli_shell_api
+touch -ac "$sbindir/my_cli_shell_api"
 
 # commit hooks
 for hook in PreCommit PostCommit; do

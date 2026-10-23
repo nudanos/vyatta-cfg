@@ -13,32 +13,12 @@ use 5.010000;
 use strict;
 use warnings;
 
-require Exporter;
 use AutoLoader qw(AUTOLOAD);
-
-our @ISA = qw(Exporter);
-
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
-
-# This allows declaration	use Cstore ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	
-) ] );
-
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
-our @EXPORT = qw(
-	
-);
 
 our $VERSION = '0.01';
 
 require XSLoader;
-XSLoader::load('Cstore', $VERSION);
+XSLoader::load( 'Cstore', $VERSION );
 
 # Preloaded methods go here.
 
@@ -53,7 +33,7 @@ Cstore - Perl binding for the Vyatta Cstore library
 =head1 SYNOPSIS
 
   use Cstore;
-  my $cstore = new Cstore;
+  my $cstore = Cstore->new();
 
 =head1 DESCRIPTION
 

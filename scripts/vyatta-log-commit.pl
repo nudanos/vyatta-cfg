@@ -12,7 +12,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0-only
 #
-# Author: Deepti Kulkarni	 
+# Author: Deepti Kulkarni
 # Date: Feb 2012
 # Description: Script to log active configuration commits to syslog.
 #
@@ -22,19 +22,18 @@ use strict;
 use warnings;
 
 use Sys::Syslog qw(:standard :macros);
-use POSIX qw(ttyname);
 
 #
 # main
 #
 my $status = $ENV{'COMMIT_STATUS'};
-my $commit_status;
 
-if (defined($status) && $status eq 'SUCCESS') {
+if ( defined($status) && $status eq 'SUCCESS' ) {
     my $cur_user = getlogin() || getpwuid($<) || "unknown";
 
-    openlog("commit", "", LOG_USER);
-    syslog (LOG_NOTICE, "Successful change to active configuration by user $cur_user");
+    openlog( "commit", "", LOG_USER );
+    syslog( LOG_NOTICE, "Successful change to active configuration by user $cur_user" );
     closelog();
 }
+
 #end of script

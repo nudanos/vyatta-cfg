@@ -33,3 +33,6 @@ override_dh_auto_test:
 	dh_auto_test
 	sh test/cliexec-shell.sh
 	bash test/boot-config-hooks.sh
+	bash test/cfg-notify.sh
+	bash test/vcli.sh
+	prove -Itest/lib -Ilib test/*.t

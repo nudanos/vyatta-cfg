@@ -17,22 +17,22 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # **** End License ****
 
+# shellcheck disable=SC1091 # reason: /etc/default/vyatta comes from another package
 [ -r /etc/default/vyatta ] && source /etc/default/vyatta
 
-cur_tty=$(ps -eo pid,tty= | grep "$2" | head -n1 | awk '{ print $2 }')
+# $1 is the committing user, $2 the pid of their session
+cur_tty=$(ps -o tty= -p "$2" | head -n1)
+cur_tty=${cur_tty// /}
 cur_user=$(getent passwd "$1" | cut -d: -f1)
-ulist=( $(ps -a -o args,tty,ruser n \
-                     | grep "^newgrp $VYATTA_CFG_GROUP_NAME" | cut -c 29-) )
 
-for (( i = 0; i < ${#ulist[@]}; i += 2 )); do
-  utty=${ulist[i]}
-  if [ "$utty" == "$cur_tty" ]; then
-    continue
-  fi
-  user=$(grep "[^:]\+:[^:]*:${ulist[i+1]}:" /etc/passwd | cut -d ':' -f 1)
+# every configuration session runs under "newgrp <configuration group>"
+while read -r utty uid args; do
+  [[ $args == "newgrp $VYATTA_CFG_GROUP_NAME"* ]] || continue
+  [ "$utty" == "$cur_tty" ] && continue
+  user=$(getent passwd "$uid" | cut -d: -f1)
   sudo write "$user" "$utty" <<EOF
 Active configuration has been changed by user '$cur_user' on '$cur_tty'.
 Please make sure you do not have conflicting changes. You can also discard
 the current changes by issuing 'exit discard'.
 EOF
-done
+done < <(ps -a -o tty=,ruser=,args= n)

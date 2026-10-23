@@ -16,7 +16,7 @@ CAPI=${BOOT_CONFIG_CAPI:-/bin/cli-shell-api}
 HOOK_DIR=${BOOT_CONFIG_HOOK_DIR:-/opt/vyatta/etc/boot-config.d}
 
 do_commit () {
-  cfgcli commit "$@"
+  cfgcli commit
 }
 
 umask 0002
@@ -34,9 +34,13 @@ umask 0002
 
   # boot-config hooks
   if [ -d "$HOOK_DIR" ]; then
-    for hook in $(LC_ALL=C ls "$HOOK_DIR"); do
-      path=$HOOK_DIR/$hook
-      [ -f "$path" ] && [ -x "$path" ] || continue
+    mapfile -d '' paths < <(find "$HOOK_DIR" -mindepth 1 -maxdepth 1 -print0 |
+      LC_ALL=C sort -z)
+    for path in "${paths[@]}"; do
+      hook=${path##*/}
+      if [ ! -f "$path" ] || [ ! -x "$path" ]; then
+        continue
+      fi
       "$path" "$BOOT_FILE"
       status=$?
       if [ $status -eq 0 ]; then

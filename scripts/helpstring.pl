@@ -2,7 +2,7 @@
 
 # Author: Arthur Xiong
 # Date: 06/21/2010
-# Description: Script to generate Vyatta command help strings from 
+# Description: Script to generate Vyatta command help strings from
 #              template files
 
 # **** License ****
@@ -24,53 +24,46 @@ use warnings;
 use File::Find;
 
 my @command_line;
-my $cfgdir;
-my $feature_name="";
+my $feature_name = q{};
 
-#
+# The first "help:" line of a node.def, as "|<text>", or "" if none.
 sub get_parameter {
-    open my $nd, '<', $_  or die "$_ can't be opened";
-    my $help_string = "";
-
-    while (<$nd>) {
-        next unless /^help:\s*(\S.*)$/;
-        $help_string .= "\|$1" if /^help:\s*(\S.*)$/;
-        last;
-    }
-    close $nd;
-    return $help_string;
+    my ($file) = @_;
+    open my $nd, '<', $file or die "$file can't be opened\n";
+    my @help = map { m{^help:\s*(\S.*)$}x ? ($1) : () } <$nd>;
+    close $nd or die "$file can't be closed\n";
+    return @help ? "|$help[0]" : q{};
 }
 
 #
 # Generate command with parameter
-# 
+#
 sub wanted {
-    return unless ( $_ eq 'node.def' );
-    my $parameter = get_parameter($File::Find::name);
+    return unless $_ eq 'node.def';
+    my $parameter = get_parameter($_);
 
     my $dir = $File::Find::dir;
-    return if $dir =~ /^.*\/\.\S(|-)\S*\/?.*$/;
-    if ( $feature_name ne "" ) {
-        return unless $dir =~ /^.*\/$feature_name(|\/.*)$/;
+    return if $dir =~ m{^.*/[.]\S(?:|-)\S*/?.*$}x;
+    if ( $feature_name ne q{} ) {
+        return unless $dir =~ m{^.*/\Q$feature_name\E(?:|/.*)$}x;
     }
 
-    $dir =~ s/^.*\/(|\S*\-)(templates)(|\-(cfg|op))\///;
-#    $dir =~ s/\// /g;
-    $dir .= "  " . $parameter . "\n";
-    
+    $dir =~ s{^.*/(?:|\S*-)templates(?:|-(?:cfg|op))/}{}x;
+    $dir .= "  $parameter\n";
+
     push @command_line, $dir;
     return 1;
 }
 
 # main program
 
-die "Usage: helpstring.pl <path-to-template> [<feature-name>]"
- unless $#ARGV == 0 or $#ARGV == 1;
-$cfgdir = $ARGV[0];
-$feature_name = $ARGV[1] if $#ARGV == 1;
-die "$cfgdir does not exist!" unless -d $cfgdir;
+die "Usage: helpstring.pl <path-to-template> [<feature-name>]\n"
+  unless @ARGV == 1 || @ARGV == 2;
+my $cfgdir = $ARGV[0];
+$feature_name = $ARGV[1] if @ARGV == 2;
+die "$cfgdir does not exist!\n" unless -d $cfgdir;
 
 # walk template file tree
 find( \&wanted, $cfgdir );
 
-print @command_line; 
+print @command_line;

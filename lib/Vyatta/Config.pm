@@ -17,10 +17,10 @@
 
 package Vyatta::Config;
 use strict;
+use warnings;
 
-require Exporter;
-
-our @ISA = qw (Exporter);
+use Carp;
+use parent qw(Exporter);
 
 our @EXPORT_OK = qw(get_short_config_path);
 
@@ -30,39 +30,38 @@ use lib '/opt/vyatta/share/perl5';
 use Cstore;
 
 my %fields = (
-  _level => undef,
-  _cstore => undef,
+    _level  => undef,
+    _cstore => undef,
 );
 
 sub new {
-  my ($that, $level) = @_;
-  my $class = ref ($that) || $that;
-  my $self = {
-    %fields,
-  };
-  bless $self, $class;
-  $self->{_level} = $level if defined($level);
-  $self->{_cstore} = new Cstore();
-  return $self;
+    my ( $that, $level ) = @_;
+    my $class = ref($that) || $that;
+    my $self  = { %fields, };
+    bless $self, $class;
+    $self->{_level}  = $level if defined($level);
+    $self->{_cstore} = Cstore->new();
+    return $self;
 }
 
 sub get_path_comps {
-  my ($self, $pstr) = @_;
-  $pstr = '' if (!defined($pstr));
-  $pstr = "$self->{_level} $pstr" if (defined($self->{_level}));
-  $pstr =~ s/^\s+//;
-  $pstr =~ s/\s+$//;
-  my @pcomps = split /\s+/, $pstr;
-  my @path_comps = ();
-  for (my $i = 0; $i < scalar(@pcomps); $i++) {
-    my $comp = $pcomps[$i];
-    if ($comp eq ".") {
-      next;
-    } else {
-      push(@path_comps, $comp);
+    my ( $self, $pstr ) = @_;
+    $pstr = ''                      if ( !defined($pstr) );
+    $pstr = "$self->{_level} $pstr" if ( defined( $self->{_level} ) );
+    $pstr =~ s/^\s+//x;
+    $pstr =~ s/\s+$//x;
+    my @pcomps     = split /\s+/x, $pstr;
+    my @path_comps = ();
+    for ( my $i = 0 ; $i < scalar(@pcomps) ; $i++ ) {
+        my $comp = $pcomps[$i];
+        if ( $comp eq "." ) {
+            next;
+        }
+        else {
+            push( @path_comps, $comp );
+        }
     }
-  }
-  return \@path_comps;
+    return \@path_comps;
 }
 
 # remove '/opt/vyatta/etc' from beginning of config directory path
@@ -70,7 +69,7 @@ sub get_short_config_path {
     my $cfg_path           = shift;
     my $shortened_cfg_path = "";
     $shortened_cfg_path = $cfg_path if defined $cfg_path;
-    $shortened_cfg_path =~ s/^\/opt\/vyatta\/etc//;
+    $shortened_cfg_path =~ s{^/opt/vyatta/etc}{}x;
     return $shortened_cfg_path;
 }
 
@@ -98,85 +97,85 @@ my $DIE_DEACT_MSG = 'This function is NOT deactivate-aware';
 ## getTree("path to node")
 # returns a json encoded version of the candidate configuration tree rooted at the provided path
 sub getTree {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->{_cstore}->cfgGetTree($self->get_path_comps($path), undef);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->{_cstore}->cfgGetTree( $self->get_path_comps($path), undef );
 }
 
 ## getActiveTree("path to node")
 # returns a json encoded version of the running configuration tree rooted at the provided path
 sub getActiveTree {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->{_cstore}->cfgGetTree($self->get_path_comps($path), 1);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->{_cstore}->cfgGetTree( $self->get_path_comps($path), 1 );
 }
 
 ## getNodeType("path to node")
 # returns one of 'leaf' 'multi' 'container' 'tag'
 sub getNodeType {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->{_cstore}->cfgPathGetType($self->get_path_comps($path));
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->{_cstore}->cfgPathGetType( $self->get_path_comps($path) );
 }
 
 ## exists("path to node")
 # Returns true if specified node exists in working config.
+## no critic (Subroutines::ProhibitBuiltinHomonyms) reason: the method name is the API every caller uses
 sub exists {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return 1
-    if ($self->{_cstore}->cfgPathExists($self->get_path_comps($path), undef));
-  return; # note: this return is needed. can't just return the return value
-          #       of the above function since some callers expect "undef"
-          #       as false.
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return 1
+      if ( $self->{_cstore}->cfgPathExists( $self->get_path_comps($path), undef ) );
+    return;    # note: this return is needed. can't just return the return value
+               #       of the above function since some callers expect "undef"
+               #       as false.
 }
+## use critic
 
 ## existsOrig("path to node")
 # Returns true if specified node exists in active config.
 sub existsOrig {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return 1
-    if ($self->{_cstore}->cfgPathExists($self->get_path_comps($path), 1));
-  return; # note: this return is needed.
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return 1
+      if ( $self->{_cstore}->cfgPathExists( $self->get_path_comps($path), 1 ) );
+    return;    # note: this return is needed.
 }
 
 ## isDefault("path to node")
 # Returns true if specified node is "default" in working config.
 sub isDefault {
-  my ($self, $path) = @_;
-  return 1
-    if ($self->{_cstore}->cfgPathDefault($self->get_path_comps($path), undef));
-  return; # note: this return is needed.
+    my ( $self, $path ) = @_;
+    return 1
+      if ( $self->{_cstore}->cfgPathDefault( $self->get_path_comps($path), undef ) );
+    return;    # note: this return is needed.
 }
 
 ## isDefaultOrig("path to node")
 # Returns true if specified node is "default" in active config.
 sub isDefaultOrig {
-  my ($self, $path) = @_;
-  return 1
-    if ($self->{_cstore}->cfgPathDefault($self->get_path_comps($path), 1));
-  return; # note: this return is needed.
+    my ( $self, $path ) = @_;
+    return 1
+      if ( $self->{_cstore}->cfgPathDefault( $self->get_path_comps($path), 1 ) );
+    return;    # note: this return is needed.
 }
 
 ## listNodes("level")
 # return array of all child nodes at "level" in working config.
 sub listNodes {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  my $ref = $self->{_cstore}->cfgPathGetChildNodes(
-                                $self->get_path_comps($path), undef);
-  return @{$ref};
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    my $ref = $self->{_cstore}->cfgPathGetChildNodes( $self->get_path_comps($path), undef );
+    return @{$ref};
 }
 
 ## listOrigNodes("level")
 # return array of all child nodes at "level" in active config.
 sub listOrigNodes {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  my $ref = $self->{_cstore}->cfgPathGetChildNodes(
-                                $self->get_path_comps($path), 1);
-  return @{$ref};
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    my $ref = $self->{_cstore}->cfgPathGetChildNodes( $self->get_path_comps($path), 1 );
+    return @{$ref};
 }
 
 ## returnValue("node")
@@ -184,10 +183,9 @@ sub listOrigNodes {
 # return undef if fail to get value (invalid node, node doesn't exist,
 # not a single-value node, etc.).
 sub returnValue {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->{_cstore}->cfgPathGetValue($self->get_path_comps($path),
-                                           undef);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->{_cstore}->cfgPathGetValue( $self->get_path_comps($path), undef );
 }
 
 ## returnOrigValue("node")
@@ -195,9 +193,9 @@ sub returnValue {
 # return undef if fail to get value (invalid node, node doesn't exist,
 # not a single-value node, etc.).
 sub returnOrigValue {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->{_cstore}->cfgPathGetValue($self->get_path_comps($path), 1);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->{_cstore}->cfgPathGetValue( $self->get_path_comps($path), 1 );
 }
 
 ## returnValues("node")
@@ -205,11 +203,10 @@ sub returnOrigValue {
 # return empty array if fail to get value (invalid node, node doesn't exist,
 # not a multi-value node, etc.).
 sub returnValues {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  my $ref = $self->{_cstore}->cfgPathGetValues($self->get_path_comps($path),
-                                               undef);
-  return @{$ref};
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    my $ref = $self->{_cstore}->cfgPathGetValues( $self->get_path_comps($path), undef );
+    return @{$ref};
 }
 
 ## returnOrigValues("node")
@@ -217,32 +214,31 @@ sub returnValues {
 # return empty array if fail to get value (invalid node, node doesn't exist,
 # not a multi-value node, etc.).
 sub returnOrigValues {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  my $ref = $self->{_cstore}->cfgPathGetValues($self->get_path_comps($path),
-                                               1);
-  return @{$ref};
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    my $ref = $self->{_cstore}->cfgPathGetValues( $self->get_path_comps($path), 1 );
+    return @{$ref};
 }
 
 ## sessionChanged()
 # return whether the config session has uncommitted changes
 sub sessionChanged {
-  my ($self) = @_;
-  return $self->{_cstore}->sessionChanged();
+    my ($self) = @_;
+    return $self->{_cstore}->sessionChanged();
 }
 
 ## inSession()
 # returns whether in a config session
 sub inSession {
-  my ($self) = @_;
-  return $self->{_cstore}->inSession();
+    my ($self) = @_;
+    return $self->{_cstore}->inSession();
 }
 
 ## loadFile()
 # "load" the specified file
 sub loadFile {
-  my ($self, $file) = @_;
-  return $self->{_cstore}->loadFile($file);
+    my ( $self, $file ) = @_;
+    return $self->{_cstore}->loadFile($file);
 }
 
 ######
@@ -327,10 +323,10 @@ sub loadFile {
 #       far as this function (and any other commit observer functions) is
 #       concerned, deactivated nodes don't exist.
 sub isEffective {
-  my ($self, $path) = @_;
-  return 1
-    if ($self->{_cstore}->cfgPathEffective($self->get_path_comps($path)));
-  return; # note: this return is needed.
+    my ( $self, $path ) = @_;
+    return 1
+      if ( $self->{_cstore}->cfgPathEffective( $self->get_path_comps($path) ) );
+    return;    # note: this return is needed.
 }
 
 ## isActive("path")
@@ -341,19 +337,18 @@ sub isEffective {
 #     sense. for commit purposes, deactivated should be equivalent to
 #     deleted.
 sub isActive {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->isEffective($path);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->isEffective($path);
 }
 
 ## listEffectiveNodes("level")
 # return array of "effective" child nodes at "level" during current commit.
 # see isEffective() for definition of "effective".
 sub listEffectiveNodes {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->cfgPathGetEffectiveChildNodes(
-                                $self->get_path_comps($path));
-  return @{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->cfgPathGetEffectiveChildNodes( $self->get_path_comps($path) );
+    return @{$ref};
 }
 
 ## listOrigPlusComNodes("level")
@@ -364,81 +359,77 @@ sub listEffectiveNodes {
 #     sense. for commit purposes, deactivated should be equivalent to
 #     deleted.
 sub listOrigPlusComNodes {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->listEffectiveNodes($path);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->listEffectiveNodes($path);
 }
 
 ## returnEffectiveValue("node")
 # return "effective" value of specified "node" during current commit.
 sub returnEffectiveValue {
-  my ($self, $path) = @_;
-  return $self->{_cstore}->cfgPathGetEffectiveValue(
-                                  $self->get_path_comps($path));
+    my ( $self, $path ) = @_;
+    return $self->{_cstore}->cfgPathGetEffectiveValue( $self->get_path_comps($path) );
 }
 
 ## returnOrigPlusComValue("node")
 # XXX this is the original API function. just call returnEffectiveValue().
 #     also, original function accepts "$disable" flag.
 sub returnOrigPlusComValue {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->returnEffectiveValue($path);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->returnEffectiveValue($path);
 }
 
 ## returnEffectiveValues("node")
 # return "effective" values of specified "node" during current commit.
 sub returnEffectiveValues {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->cfgPathGetEffectiveValues(
-                                      $self->get_path_comps($path));
-  return @{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->cfgPathGetEffectiveValues( $self->get_path_comps($path) );
+    return @{$ref};
 }
 
 ## returnOrigPlusComValues("node")
 # XXX this is the original API function. just call returnEffectiveValues().
 #     also, original function accepts "$disable" flag.
 sub returnOrigPlusComValues {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->returnEffectiveValues($path);
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->returnEffectiveValues($path);
 }
 
 ## isDeleted("node")
 # whether specified node has been deleted in working config
 sub isDeleted {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return 1 if ($self->{_cstore}->cfgPathDeleted($self->get_path_comps($path)));
-  return; # note: this return is needed.
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return 1             if ( $self->{_cstore}->cfgPathDeleted( $self->get_path_comps($path) ) );
+    return;    # note: this return is needed.
 }
 
 ## listDeleted("level")
 # return array of deleted nodes at specified "level"
 sub listDeleted {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  my $ref = $self->{_cstore}->cfgPathGetDeletedChildNodes(
-                                $self->get_path_comps($path));
-  return @{$ref};
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    my $ref = $self->{_cstore}->cfgPathGetDeletedChildNodes( $self->get_path_comps($path) );
+    return @{$ref};
 }
 
 ## returnDeletedValues("level")
 # return array of deleted values of specified "multi node"
 sub returnDeletedValues {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->cfgPathGetDeletedValues(
-                                $self->get_path_comps($path));
-  return @{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->cfgPathGetDeletedValues( $self->get_path_comps($path) );
+    return @{$ref};
 }
 
 ## isAdded("node")
 # whether specified node has been added in working config
 sub isAdded {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return 1 if ($self->{_cstore}->cfgPathAdded($self->get_path_comps($path)));
-  return; # note: this return is needed.
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return 1             if ( $self->{_cstore}->cfgPathAdded( $self->get_path_comps($path) ) );
+    return;    # note: this return is needed.
 }
 
 ## isChanged("node")
@@ -449,10 +440,10 @@ sub isAdded {
 #     basically, a node is "changed" if it's "added", "deleted", or
 #     "marked changed" (i.e., if any descendant changed).
 sub isChanged {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return 1 if ($self->{_cstore}->cfgPathChanged($self->get_path_comps($path)));
-  return; # note: this return is needed.
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return 1             if ( $self->{_cstore}->cfgPathChanged( $self->get_path_comps($path) ) );
+    return;    # note: this return is needed.
 }
 
 ## listNodeStatus("level")
@@ -460,71 +451,69 @@ sub isChanged {
 # node name is the hash key. node status is the hash value.
 # node status can be one of "deleted", "added", "changed", or "static".
 sub listNodeStatus {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  my $ref = $self->{_cstore}->cfgPathGetChildNodesStatus(
-                                          $self->get_path_comps($path));
-  return %{$ref};
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    my $ref = $self->{_cstore}->cfgPathGetChildNodesStatus( $self->get_path_comps($path) );
+    return %{$ref};
 }
 
 ## getNodeStatus("level")
 # return the string value of the status of a node
 # returns the same style listings as listNodeStatus
 sub getNodeStatus {
-  my ($self, $path, $include_deactivated) = @_;
-  die $DIE_DEACT_MSG if (defined($include_deactivated));
-  return $self->{_cstore}->cfgPathStatus($self->get_path_comps($path));
+    my ( $self, $path, $include_deactivated ) = @_;
+    croak $DIE_DEACT_MSG if ( defined($include_deactivated) );
+    return $self->{_cstore}->cfgPathStatus( $self->get_path_comps($path) );
 }
 
 ## getTmplChildren("level")
 # return list of child nodes in the template hierarchy at specified level.
 sub getTmplChildren {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->tmplGetChildNodes($self->get_path_comps($path));
-  return @{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->tmplGetChildNodes( $self->get_path_comps($path) );
+    return @{$ref};
 }
 
 ## validateTmplPath("path")
 # return whether specified path is a valid template path
 sub validateTmplPath {
-  my ($self, $path, $validate_vals) = @_;
-  return 1 if ($self->{_cstore}->validateTmplPath($self->get_path_comps($path),
-                                                  $validate_vals));
-  return; # note: this return is needed.
+    my ( $self, $path, $validate_vals ) = @_;
+    return 1
+      if ( $self->{_cstore}->validateTmplPath( $self->get_path_comps($path), $validate_vals ) );
+    return;    # note: this return is needed.
 }
 
 ## parseTmplAll("path")
 # return hash ref of parsed template of specified path, undef if path is
 # invalid. note: if !allow_val, path must terminate at a "node", not "value".
 sub parseTmplAll {
-  my ($self, $path, $allow_val) = @_;
-  my $href = $self->{_cstore}->getParsedTmpl($self->get_path_comps($path),
-                                             $allow_val);
-  if (defined($href)) {
-    # some conversions are needed
-    if (defined($href->{is_value}) and $href->{is_value} eq '1') {
-      $href->{is_value} = 1;
+    my ( $self, $path, $allow_val ) = @_;
+    my $href = $self->{_cstore}->getParsedTmpl( $self->get_path_comps($path), $allow_val );
+    if ( defined($href) ) {
+
+        # some conversions are needed
+        if ( defined( $href->{is_value} ) and $href->{is_value} eq '1' ) {
+            $href->{is_value} = 1;
+        }
+        if ( defined( $href->{multi} ) and $href->{multi} eq '1' ) {
+            $href->{multi} = 1;
+        }
+        if ( defined( $href->{tag} ) and $href->{tag} eq '1' ) {
+            $href->{tag} = 1;
+        }
+        if ( defined( $href->{limit} ) ) {
+            $href->{limit} = int( $href->{limit} );
+        }
     }
-    if (defined($href->{multi}) and $href->{multi} eq '1') {
-      $href->{multi} = 1;
-    }
-    if (defined($href->{tag}) and $href->{tag} eq '1') {
-      $href->{tag} = 1;
-    }
-    if (defined($href->{limit})) {
-      $href->{limit} = int($href->{limit});
-    }
-  }
-  return $href;
+    return $href;
 }
 
 sub hasTmplChildren {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->tmplGetChildNodes($self->get_path_comps($path));
-  return if (!defined($ref));
-  return (scalar(@{$ref}) > 0);
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->tmplGetChildNodes( $self->get_path_comps($path) );
+    return if ( !defined($ref) );
+    return ( scalar( @{$ref} ) > 0 );
 }
-
 
 ######
 # "deactivate-aware" observers of current working config or active config.
@@ -542,88 +531,80 @@ sub hasTmplChildren {
 # "marked deactivated", then the node itself and any descendants are
 # "deactivated".
 sub deactivated {
-  my ($self, $path) = @_;
-  return 1
-    if ($self->{_cstore}->cfgPathDeactivated($self->get_path_comps($path),
-                                             undef));
-  return; # note: this return is needed.
+    my ( $self, $path ) = @_;
+    return 1
+      if ( $self->{_cstore}->cfgPathDeactivated( $self->get_path_comps($path), undef ) );
+    return;    # note: this return is needed.
 }
 
 ## deactivatedOrig("node")
 # return whether specified node is deactivated in active config.
 sub deactivatedOrig {
-  my ($self, $path) = @_;
-  return 1
-    if ($self->{_cstore}->cfgPathDeactivated($self->get_path_comps($path), 1));
-  return; # note: this return is needed.
+    my ( $self, $path ) = @_;
+    return 1
+      if ( $self->{_cstore}->cfgPathDeactivated( $self->get_path_comps($path), 1 ) );
+    return;    # note: this return is needed.
 }
 
 ## returnValuesDA("node")
 # DA version of returnValues()
 sub returnValuesDA {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->cfgPathGetValuesDA($self->get_path_comps($path),
-                                                 undef);
-  return @{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->cfgPathGetValuesDA( $self->get_path_comps($path), undef );
+    return @{$ref};
 }
 
 ## returnOrigValuesDA("node")
 # DA version of returnOrigValues()
 sub returnOrigValuesDA {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->cfgPathGetValuesDA($self->get_path_comps($path),
-                                                 1);
-  return @{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->cfgPathGetValuesDA( $self->get_path_comps($path), 1 );
+    return @{$ref};
 }
 
 ## returnValueDA("node")
 # DA version of returnValue()
 sub returnValueDA {
-  my ($self, $path) = @_;
-  return $self->{_cstore}->cfgPathGetValueDA($self->get_path_comps($path),
-                                             undef);
+    my ( $self, $path ) = @_;
+    return $self->{_cstore}->cfgPathGetValueDA( $self->get_path_comps($path), undef );
 }
 
 ## returnOrigValueDA("node")
 # DA version of returnOrigValue()
 sub returnOrigValueDA {
-  my ($self, $path) = @_;
-  return $self->{_cstore}->cfgPathGetValueDA($self->get_path_comps($path), 1);
+    my ( $self, $path ) = @_;
+    return $self->{_cstore}->cfgPathGetValueDA( $self->get_path_comps($path), 1 );
 }
 
 ## listOrigNodesDA("level")
 # DA version of listOrigNodes()
 sub listOrigNodesDA {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->cfgPathGetChildNodesDA(
-                                $self->get_path_comps($path), 1);
-  return @{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->cfgPathGetChildNodesDA( $self->get_path_comps($path), 1 );
+    return @{$ref};
 }
 
 ## listNodeStatusDA("level")
 # DA version of listNodeStatus()
 sub listNodeStatusDA {
-  my ($self, $path) = @_;
-  my $ref = $self->{_cstore}->cfgPathGetChildNodesStatusDA(
-                                          $self->get_path_comps($path));
-  return %{$ref};
+    my ( $self, $path ) = @_;
+    my $ref = $self->{_cstore}->cfgPathGetChildNodesStatusDA( $self->get_path_comps($path) );
+    return %{$ref};
 }
 
 ## returnComment("node")
 # return comment of "node" in working config or undef if comment doesn't exist
 sub returnComment {
-  my ($self, $path) = @_;
-  return $self->{_cstore}->cfgPathGetComment($self->get_path_comps($path),
-                                             undef);
+    my ( $self, $path ) = @_;
+    return $self->{_cstore}->cfgPathGetComment( $self->get_path_comps($path), undef );
 }
 
 ## returnOrigComment("node")
 # return comment of "node" in active config or undef if comment doesn't exist
 sub returnOrigComment {
-  my ($self, $path) = @_;
-  return $self->{_cstore}->cfgPathGetComment($self->get_path_comps($path), 1);
+    my ( $self, $path ) = @_;
+    return $self->{_cstore}->cfgPathGetComment( $self->get_path_comps($path), 1 );
 }
-
 
 ############################################################
 # high-level API functions (not using the cstore library directly)
@@ -633,72 +614,71 @@ sub returnOrigComment {
 # set the current level of config hierarchy to specified level (if defined).
 # return the current level.
 sub setLevel {
-  my ($self, $level) = @_;
-  if ($level eq ".") {
+    my ( $self, $level ) = @_;
+    if ( $level eq "." ) {
+        return $self->{_level};
+    }
+    $self->{_level} = $level if defined($level);
     return $self->{_level};
-  }
-  $self->{_level} = $level if defined($level);
-  return $self->{_level};
 }
 
 ## returnParent("..( ..)*")
 # return the name of ancestor node relative to the current level.
 # each level up is represented by a ".." in the argument.
 sub returnParent {
-  my ($self, $ppath) = @_;
-  my @pcomps = @{$self->get_path_comps()};
-  # we could call split in scalar context but that generates a warning
-  my @dummy = split(/\s+/, $ppath);
-  my $num = scalar(@dummy);
-  return if ($num > scalar(@pcomps));
-  return $pcomps[-$num];
+    my ( $self, $ppath ) = @_;
+    my @pcomps = @{ $self->get_path_comps() };
+
+    # we could call split in scalar context but that generates a warning
+    my @dummy = split( /\s+/x, $ppath );
+    my $num   = scalar(@dummy);
+    return if ( $num > scalar(@pcomps) );
+    return $pcomps[ -$num ];
 }
 
 ## parseTmpl("path")
 # parse template of specified path and return ($is_multi, $is_text, $default)
 # or undef if specified path is not valid.
 sub parseTmpl {
-  my ($self, $path) = @_;
-  my $href = $self->parseTmplAll($path);
-  return if (!defined($href));
-  my $is_multi = $href->{multi};
-  my $is_text = (defined($href->{type}) and $href->{type} eq 'txt');
-  my $default = $href->{default};
-  return ($is_multi, $is_text, $default);
+    my ( $self, $path ) = @_;
+    my $href = $self->parseTmplAll($path);
+    return if ( !defined($href) );
+    my $is_multi = $href->{multi};
+    my $is_text  = ( defined( $href->{type} ) && $href->{type} eq 'txt' );
+    my $default  = $href->{default};
+    return ( $is_multi, $is_text, $default );
 }
 
 ## isTagNode("path")
 # whether specified path is a tag node.
 sub isTagNode {
-  my ($self, $path) = @_;
-  my $href = $self->parseTmplAll($path);
-  return (defined($href) and $href->{tag});
+    my ( $self, $path ) = @_;
+    my $href = $self->parseTmplAll($path);
+    return ( defined($href) && $href->{tag} );
 }
 
 ## isMultiNode("path")
 # whether specified path is a "multi leaf node", i.e., multi-value node.
 sub isMultiNode {
-  my ($self, $path) = @_;
-  my $href = $self->parseTmplAll($path, 1);
-  return (defined($href) and !$href->{is_value} and $href->{type}
-          and $href->{multi});
+    my ( $self, $path ) = @_;
+    my $href = $self->parseTmplAll( $path, 1 );
+    return ( defined($href) && !$href->{is_value} && $href->{type} && $href->{multi} );
 }
 
 ## isLeafNode("path")
 # whether specified path is a "leaf node", i.e., single-/multi-value node.
 sub isLeafNode {
-  my ($self, $path) = @_;
-  my $href = $self->parseTmplAll($path, 1);
-  return (defined($href) and !$href->{is_value} and $href->{type}
-          and !$href->{tag});
+    my ( $self, $path ) = @_;
+    my $href = $self->parseTmplAll( $path, 1 );
+    return ( defined($href) && !$href->{is_value} && $href->{type} && !$href->{tag} );
 }
 
 ## isLeafValue("path")
 # whether specified path is a "leaf value", i.e., value of a leaf node.
 sub isLeafValue {
-  my ($self, $path) = @_;
-  my $href = $self->parseTmplAll($path, 1);
-  return (defined($href) and $href->{is_value} and !$href->{tag});
+    my ( $self, $path ) = @_;
+    my $href = $self->parseTmplAll( $path, 1 );
+    return ( defined($href) && $href->{is_value} && !$href->{tag} );
 }
 
 # compare two value lists and return "deleted" and "added" lists.
@@ -707,67 +687,72 @@ sub isLeafValue {
 # $0: \@orig_values
 # $1: \@new_values
 sub compareValueLists {
-  my $self = shift;
-  my @ovals = @{$_[0]};
-  my @nvals = @{$_[1]};
-  my %comp_hash = (
-                    'deleted' => [],
-                    'added' => [],
-                  );
-  my $idx = 0;
-  my %ohash = map { $_ => ($idx++) } @ovals;
-  $idx = 0;
-  my %nhash = map { $_ => ($idx++) } @nvals;
-  my $min_changed_idx = 2**31;
-  my %dhash = ();
-  foreach (@ovals) {
-    if (!defined($nhash{$_})) {
-      push @{$comp_hash{'deleted'}}, $_;
-      $dhash{$_} = 1;
-      if ($ohash{$_} < $min_changed_idx) {
-        $min_changed_idx = $ohash{$_};
-      }
-    }
-  }
-  foreach (@nvals) {
-    if (defined($ohash{$_})) {
-      if ($ohash{$_} != $nhash{$_}) {
-        if ($ohash{$_} < $min_changed_idx) {
-          $min_changed_idx = $ohash{$_};
+    my ( $self, $orig_values, $new_values ) = @_;
+    my @ovals     = @{$orig_values};
+    my @nvals     = @{$new_values};
+    my %comp_hash = (
+        'deleted' => [],
+        'added'   => [],
+    );
+    my $idx   = 0;
+    my %ohash = map { $_ => ( $idx++ ) } @ovals;
+    $idx = 0;
+    my %nhash           = map { $_ => ( $idx++ ) } @nvals;
+    my $min_changed_idx = 2**31;
+    my %dhash           = ();
+
+    foreach (@ovals) {
+        if ( !defined( $nhash{$_} ) ) {
+            push @{ $comp_hash{'deleted'} }, $_;
+            $dhash{$_} = 1;
+            if ( $ohash{$_} < $min_changed_idx ) {
+                $min_changed_idx = $ohash{$_};
+            }
         }
-      }
     }
-  }
-  foreach (@nvals) {
-    if (defined($ohash{$_})) {
-      if ($ohash{$_} != $nhash{$_}) {
-        if (!defined($dhash{$_})) {
-          push @{$comp_hash{'deleted'}}, $_;
-          $dhash{$_} = 1;
+    foreach (@nvals) {
+        if ( defined( $ohash{$_} ) ) {
+            if ( $ohash{$_} != $nhash{$_} ) {
+                if ( $ohash{$_} < $min_changed_idx ) {
+                    $min_changed_idx = $ohash{$_};
+                }
+            }
         }
-        push @{$comp_hash{'added'}}, $_;
-      } elsif ($ohash{$_} >= $min_changed_idx) {
-        # ordering unchanged, but something before it is changed.
-        if (!defined($dhash{$_})) {
-          push @{$comp_hash{'deleted'}}, $_;
-          $dhash{$_} = 1;
-        }
-        push @{$comp_hash{'added'}}, $_;
-      } else {
-        # this is before any changed value. do nothing.
-      }
-    } else {
-      push @{$comp_hash{'added'}}, $_;
     }
-  }
-  return %comp_hash;
+    foreach (@nvals) {
+        if ( defined( $ohash{$_} ) ) {
+            if ( $ohash{$_} != $nhash{$_} ) {
+                if ( !defined( $dhash{$_} ) ) {
+                    push @{ $comp_hash{'deleted'} }, $_;
+                    $dhash{$_} = 1;
+                }
+                push @{ $comp_hash{'added'} }, $_;
+            }
+            elsif ( $ohash{$_} >= $min_changed_idx ) {
+
+                # ordering unchanged, but something before it is changed.
+                if ( !defined( $dhash{$_} ) ) {
+                    push @{ $comp_hash{'deleted'} }, $_;
+                    $dhash{$_} = 1;
+                }
+                push @{ $comp_hash{'added'} }, $_;
+            }
+            else {
+                # this is before any changed value. do nothing.
+            }
+        }
+        else {
+            push @{ $comp_hash{'added'} }, $_;
+        }
+    }
+    return %comp_hash;
 }
 
-
 sub outputError {
-    my ($location,$msg) = @_;
-    print STDERR "_errloc_:[ " . join(" ",@{$location}) . " ]\n";
+    my ( $location, $msg ) = @_;
+    print STDERR "_errloc_:[ " . join( " ", @{$location} ) . " ]\n";
     print STDERR $msg . "\n\n";
+    return;
 }
 
 ############################################################
@@ -787,21 +772,25 @@ sub outputError {
 ## getAllDeactivated()
 # returns array of all deactivated nodes.
 my @all_deactivated_nodes;
+
 sub getAllDeactivated {
-    my ($self, $path) = @_;
+    my ( $self, $path ) = @_;
     my $start_dir = $ENV{VYATTA_ACTIVE_CONFIGURATION_DIR};
-    find ( \&wanted, $start_dir );
+    find( \&wanted, $start_dir );
     return @all_deactivated_nodes;
 }
+
 sub wanted {
     if ( $_ eq '.disable' ) {
-	my $f = $File::Find::name;
-	#now strip off leading path and trailing file
-	$f = substr($f, length($ENV{VYATTA_ACTIVE_CONFIGURATION_DIR}));
-	$f = substr($f, 0, length($f)-length("/.disable"));
-	$f =~ s/\// /g;
-	push @all_deactivated_nodes, $f;
+        my $f = $File::Find::name;
+
+        #now strip off leading path and trailing file
+        $f = substr( $f, length( $ENV{VYATTA_ACTIVE_CONFIGURATION_DIR} ) );
+        $f = substr( $f, 0, length($f) - length("/.disable") );
+        $f =~ s{/}{ }gx;
+        push @all_deactivated_nodes, $f;
     }
+    return;
 }
 
 1;
