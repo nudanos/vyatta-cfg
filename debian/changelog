@@ -1,3 +1,10 @@
+vyatta-cfg (1.35) trixie; urgency=medium
+
+  * Stop boot configuration loading and close the session when a safety
+    hook returns EX_CONFIG (78).
+
+ -- NuDanOS Maintainers <jon@fernandez.tech>  Thu, 05 Nov 2026 16:06:11 +0000
+
 vyatta-cfg (1.34) trixie; urgency=medium
 
   * Code-quality lint fixes (distro docs/porting.md): analyzer findings
