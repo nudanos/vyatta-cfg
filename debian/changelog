@@ -1,3 +1,10 @@
+vyatta-cfg (1.36) trixie; urgency=medium
+
+  * Coordinate legacy startup saves with the shared bounded startup writer
+    lock, including aliases, while leaving unrelated backups unchanged.
+
+ -- NuDanOS Maintainers <jon@fernandez.tech>  Wed, 18 Nov 2026 12:00:00 -0700
+
 vyatta-cfg (1.35) trixie; urgency=medium
 
   * Stop boot configuration loading and close the session when a safety
