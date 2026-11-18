@@ -12,7 +12,8 @@ shift
 CAPI=${BOOT_CONFIG_CAPI:-/bin/cli-shell-api}
 # Executables run before the boot configuration is loaded, as
 # "<hook> <boot file>" (e.g. to set aside configuration a release cannot
-# load). A failing hook is logged and does not stop the boot.
+# load). Ordinary hook failures are logged. EX_CONFIG (78) means that
+# loading or committing the configuration would be unsafe and stops the load.
 HOOK_DIR=${BOOT_CONFIG_HOOK_DIR:-/opt/vyatta/etc/boot-config.d}
 
 do_commit () {
@@ -47,6 +48,13 @@ umask 0002
         echo "boot-config hook $hook: ok"
       else
         echo "boot-config hook $hook: failed ($status)" 1>&2
+        if [ "$status" -eq 78 ]; then
+          echo "critical boot-config hook $hook: configuration was not loaded" 1>&2
+          if ! $CAPI teardownSession; then
+            echo 'teardown failed' 1>&2
+          fi
+          exit 78
+        fi
       fi
     done
   fi

@@ -25,6 +25,9 @@ use File::Sync qw(fsync);
 use Getopt::Long;
 use File::Basename;
 use File::Temp;
+use Fcntl qw(:DEFAULT :flock :mode O_DIRECTORY O_NOFOLLOW O_NONBLOCK);
+use Errno qw(EEXIST EWOULDBLOCK EAGAIN EINTR);
+use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC sleep);
 use Vyatta::Config qw(get_short_config_path);
 
 umask 0077;
@@ -73,6 +76,32 @@ sub is_config_file {
     return $found;
 }
 
+# Acquire the same stable lock used by configd and the password RPC.
+sub startup_lock {
+    my $dir = "/run/nudanos-startup";
+    mkdir $dir, 0700 or $! == EEXIST or die "Cannot create startup lock directory: $!\n";
+    sysopen my $dirfh, $dir, O_RDONLY | O_DIRECTORY | O_NOFOLLOW
+      or die "Cannot open startup lock directory: $!\n";
+    my @ds = stat $dirfh;
+    @ds && S_ISDIR($ds[2]) && $ds[4] == $> && ($ds[2] & 07777) == 0700
+      or die "Unsafe startup lock directory metadata\n";
+    my $lockpath = '/proc/self/fd/' . fileno($dirfh) . '/startup.lock';
+    sysopen my $lock, $lockpath, O_RDWR | O_CREAT | O_NOFOLLOW | O_NONBLOCK, 0600
+      or die "Cannot open startup lock: $!\n";
+    my @st = stat $lock;
+    @st && S_ISREG($st[2]) && $st[3] == 1 && $st[4] == $> && ($st[2] & 07777) == 0600
+      or die "Unsafe startup lock metadata\n";
+    my $deadline = clock_gettime(CLOCK_MONOTONIC) + 10;
+    while (!flock($lock, LOCK_EX | LOCK_NB)) {
+        $! == EWOULDBLOCK || $! == EAGAIN || $! == EINTR
+          or die "Cannot lock startup configuration: $!\n";
+        my $remaining = $deadline - clock_gettime(CLOCK_MONOTONIC);
+        $remaining > 0 or die "Timed out waiting for startup lock\n";
+        sleep($remaining < 0.05 ? $remaining : 0.05);
+    }
+    return $lock;
+}
+
 # Writes the active configuration and the version trailer to $fh.
 sub write_config {
     my ( $fh, $name, $show_default ) = @_;
@@ -103,12 +132,27 @@ sub save_local {
     my ( $save_file, $show_default ) = @_;
     $save_file = "$bootpath/$save_file" if $save_file !~ m{^/}x;
     print "Saving configuration to '" . get_short_config_path($save_file) . "'...\n";
+    # Pin the destination directory before comparing it with the startup
+    # directory. A caller cannot retarget a symlink between this check and rename.
+    my ( $name, $parent ) = fileparse($save_file);
+    sysopen my $dir, $parent, O_RDONLY | O_DIRECTORY
+      or die "Failed to open save directory $parent: $!\n";
+    my @parent_stat = stat $dir;
+    @parent_stat or die "Failed to stat save directory $parent: $!\n";
+    my $is_startup = 0;
+    if ($name eq 'config.boot') {
+        my @boot_stat = stat $bootpath;
+        @boot_stat or die "Failed to stat startup directory $bootpath: $!\n";
+        $is_startup = $parent_stat[0] == $boot_stat[0] && $parent_stat[1] == $boot_stat[1];
+    }
+    my $startup_lock = startup_lock() if $is_startup;
+    my $basedir = '/proc/self/fd/' . fileno($dir) . '/';
+    $save_file = $basedir . $name;
 
     # an existing file is only replaced if it is a configuration file
     fail("File exists and is not a Vyatta configuration file, aborting save!")
       if -e $save_file && !is_config_file($save_file);
 
-    my ( undef, $basedir ) = fileparse($save_file);
     my $save = File::Temp->new(
         TEMPLATE => 'tmp_configXXXXXXXX',
         DIR      => $basedir,
@@ -120,9 +164,8 @@ sub save_local {
 
     rename $save->filename, $save_file
       or die "Failed to rename $save to $save_file: $!\n";
-    open my $dir, '<', $basedir
-      or die "Failed to open filehandle $basedir: $!\n";
-    fsync($dir) or die "Failed to fsync $basedir: $!\n";
+    fsync($dir) or die "Failed to fsync $parent: $!\n";
+
     close $dir;
     return;
 }

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # vyatta-boot-config-loader runs every executable regular file in
 # BOOT_CONFIG_HOOK_DIR (LC_ALL=C order) as "<hook> <boot file>" before
-# loading the boot configuration, logs each result and never aborts on a
-# hook failure.
+# loading the boot configuration. Ordinary hook failures are logged;
+# EX_CONFIG (78) is a safety failure and must abort before load or commit.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 loader=$here/../scripts/vyatta-boot-config-loader
@@ -23,10 +23,11 @@ chmod +x "$tmp/hooks/10-a" "$tmp/hooks/20-b" "$tmp/hooks/25 spaced" "$tmp/hooks/
 # cli-shell-api records what it is asked; cfgcli (commit) succeeds
 cat > "$tmp/capi" <<END
 #!/bin/sh
+echo "\$1" >> $tmp/capi-calls
 [ "\$1" = loadFile ] && echo "loadFile \$2" >> $tmp/order
 exit 0
 END
-printf '#!/bin/sh\nexit 0\n' > "$tmp/bin/cfgcli"
+printf '#!/bin/sh\necho commit >> %s/commits\nexit 0\n' "$tmp" > "$tmp/bin/cfgcli"
 chmod +x "$tmp/capi" "$tmp/bin/cfgcli"
 
 PATH=$tmp/bin:$PATH BOOT_CONFIG_CAPI=$tmp/capi BOOT_CONFIG_HOOK_DIR=$tmp/hooks \
@@ -52,6 +53,26 @@ check "hooks did not run before loadFile" \
     [ "$(head -1 "$tmp/order")" = "hook 10-a $tmp/config.boot" ]
 check "loadFile did not run last" \
     [ "$(tail -1 "$tmp/order")" = "loadFile $tmp/config.boot" ]
+
+# A safety hook cannot be treated like an optional diagnostic hook: loading
+# the rest could discard an unsupported firewall and enable unfiltered transit.
+hook 35-critical 'exit 78'
+hook 45-after "printf x >> $tmp/marker"
+chmod +x "$tmp/hooks/35-critical" "$tmp/hooks/45-after"
+rm -f "$tmp/marker" "$tmp/order" "$tmp/capi-calls" "$tmp/commits"
+critical_status=0
+PATH=$tmp/bin:$PATH BOOT_CONFIG_CAPI=$tmp/capi BOOT_CONFIG_HOOK_DIR=$tmp/hooks \
+    bash "$loader" "$tmp/config.boot" > "$tmp/critical-out" 2>&1 || critical_status=$?
+check "critical hook did not fail the loader with EX_CONFIG" [ "$critical_status" = 78 ]
+check "configuration loaded after a critical hook failure" \
+    test "$(grep -c '^loadFile ' "$tmp/order" || true)" = 0
+check "configuration committed after a critical hook failure" test ! -e "$tmp/commits"
+check "session was not torn down after a critical hook failure" \
+    grep -qx teardownSession "$tmp/capi-calls"
+check "later hooks ran after a critical hook failure" \
+    test "$(cat "$tmp/marker")" = abs
+check "critical failure was not explained" \
+    grep -q 'critical boot-config hook 35-critical' "$tmp/critical-out"
 if [ $fail != 0 ]; then
     sed 's/^/    /' "$tmp/out" >&2
     exit 1

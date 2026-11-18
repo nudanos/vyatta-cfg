@@ -10,7 +10,9 @@ use warnings;
 use File::Path qw(make_path);
 use File::Temp qw(tempdir);
 use FindBin;
-use Test::More tests => 27;
+use Test::More tests => 46;
+use Fcntl qw(:flock);
+use Time::HiRes qw(sleep);
 
 my $port    = "$FindBin::Bin/..";
 my $tmp     = tempdir( CLEANUP => 1 );
@@ -61,6 +63,7 @@ my $script = read_file("$port/scripts/vyatta-save-config.pl")
 $script =~ s{"/opt/vyatta/etc"}{"$etc"}x    or BAIL_OUT('no etcdir');
 $script =~ s{"/opt/vyatta/sbin"}{"$sbin"}x  or BAIL_OUT('no sbindir');
 $script =~ s{'/usr/bin/curl'}{'$bin/curl'}x or BAIL_OUT('no curl check');
+$script =~ s{/run/nudanos-startup}{$tmp/startup-lock}g;
 write_file( "$tmp/save.pl", $script );
 
 sub save {
@@ -172,4 +175,79 @@ my $saved = "system {\n    host-name vr\n}\n$version";
 {
     my ($rc) = save( 'a', 'b' );
     is( $rc, 1, 'two arguments: usage error' );
+}
+
+{
+    mkdir "$tmp/startup-lock", 0700 or BAIL_OUT("mkdir lock: $!");
+    open my $lock, '>', "$tmp/startup-lock/startup.lock" or BAIL_OUT("open lock: $!");
+    chmod 0600, "$tmp/startup-lock/startup.lock";
+    flock($lock, LOCK_EX) or BAIL_OUT("flock: $!");
+    unlink $log;
+    my $pid = fork(); defined $pid or BAIL_OUT("fork: $!");
+    if (!$pid) { close $lock; my ($rc) = save(); write_file("$tmp/writer-status", "$rc"); exit 0 }
+    sleep 0.5;
+    ok(!-e "$tmp/writer-status", 'startup save waits while lock held');
+    ok(!-e $log, 'startup save does not snapshot while lock held');
+    close $lock;
+    waitpid($pid, 0);
+    is(read_file("$tmp/writer-status"), '0', 'startup save completes after lock release');
+}
+{
+    symlink $config, "$tmp/config-alias" or BAIL_OUT("symlink config alias: $!");
+    chmod 0644, "$tmp/startup-lock/startup.lock" or BAIL_OUT("chmod lock: $!");
+    my ( $rc, $out, $calls ) = save("$tmp/config-alias/config.boot");
+    isnt($rc, 0, 'startup directory alias checks lock safety');
+    like($out, qr/Unsafe startup lock metadata/, 'unsafe lock metadata reported');
+    is($calls, q{}, 'unsafe lock refuses before reading configuration');
+    my ($backup_rc) = save('ordinary-backup.boot');
+    is($backup_rc, 0, 'unrelated backup does not require startup lock');
+    chmod 0600, "$tmp/startup-lock/startup.lock" or BAIL_OUT("restore lock mode: $!");
+    unlink "$tmp/startup-lock/startup.lock" or BAIL_OUT("remove test lock: $!");
+    symlink '/dev/null', "$tmp/startup-lock/startup.lock" or BAIL_OUT("symlink lock: $!");
+    my ( $symlink_rc, undef, $symlink_calls ) = save();
+    isnt($symlink_rc, 0, 'startup lock symlink refused');
+    is($symlink_calls, q{}, 'symlink refused before configuration read');
+    unlink "$tmp/startup-lock/startup.lock" or BAIL_OUT("remove test symlink: $!");
+    chmod 0755, "$tmp/startup-lock" or BAIL_OUT("chmod lock directory: $!");
+    my ( $dir_rc, undef, $dir_calls ) = save();
+    isnt($dir_rc, 0, 'unsafe lock directory refused');
+    is($dir_calls, q{}, 'unsafe directory refused before configuration read');
+}
+{
+    chmod 0700, "$tmp/startup-lock" or BAIL_OUT("restore lock directory: $!");
+    write_file("$tmp/startup-lock/startup.lock", q{}, 0600);
+    link "$tmp/startup-lock/startup.lock", "$tmp/startup-lock/other" or BAIL_OUT("hardlink: $!");
+    my ( $rc, undef, $calls ) = save();
+    isnt($rc, 0, 'multi-link lock refused');
+    is($calls, q{}, 'multi-link lock refused before configuration read');
+    unlink "$tmp/startup-lock/other" or BAIL_OUT("remove hardlink: $!");
+    open my $lock, '>', "$tmp/startup-lock/startup.lock" or BAIL_OUT("open lock: $!");
+    flock($lock, LOCK_EX) or BAIL_OUT("flock: $!");
+    my $start = Time::HiRes::time();
+    my ( $timeout_rc, $out ) = save();
+    my $elapsed = Time::HiRes::time() - $start;
+    close $lock;
+    isnt($timeout_rc, 0, 'contended startup lock times out');
+    like($out, qr/Timed out waiting for startup lock/, 'timeout reported');
+    ok($elapsed >= 9 && $elapsed < 15, 'lock timeout bounded near ten seconds');
+}
+{
+    my $alias = "$tmp/racing-alias";
+    my $other = "$tmp/other-directory";
+    mkdir $other, 0700 or BAIL_OUT("mkdir other directory: $!");
+    symlink $config, $alias or BAIL_OUT("symlink racing alias: $!");
+    write_file("$config/config.boot", "startup-before\n$version");
+    write_file("$other/config.boot", "backup-before\n$version");
+    open my $lock, '>', "$tmp/startup-lock/startup.lock" or BAIL_OUT("open lock: $!");
+    flock($lock, LOCK_EX) or BAIL_OUT("flock: $!");
+    my $pid = fork(); defined $pid or BAIL_OUT("fork: $!");
+    if (!$pid) { close $lock; my ($rc) = save("$alias/config.boot"); write_file("$tmp/race-status", "$rc"); exit 0 }
+    sleep 0.5;
+    unlink $alias or BAIL_OUT("unlink alias: $!");
+    symlink $other, $alias or BAIL_OUT("retarget alias: $!");
+    close $lock;
+    waitpid($pid, 0);
+    is(read_file("$tmp/race-status"), '0', 'save succeeds when parent alias is retargeted');
+    is(read_file("$config/config.boot"), $saved, 'save stays bound to original startup directory');
+    is(read_file("$other/config.boot"), "backup-before\n$version", 'retargeted directory is not modified');
 }
